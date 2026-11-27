@@ -33,6 +33,7 @@
 </section>
 
 <div id="live-status" class="sr-only" role="status" aria-live="polite"></div>
+<div id="upload-error" class="space-y-2"></div>
 
 <section id="bulk-bar" class="hidden card bg-base-100 converza-card rounded-xl p-3">
   <div class="flex flex-wrap items-center justify-between gap-3">
@@ -136,16 +137,38 @@
 
     if (convertAllBtn && filesEl) {
       convertAllBtn.addEventListener('click', function () {
-        var forms = filesEl.querySelectorAll('form[data-convert-form]');
-        forms.forEach(function (form) {
-          if (typeof form.requestSubmit === 'function') {
-            form.requestSubmit();
-          } else {
-            htmx.trigger(form, 'submit');
-          }
+        var payload = {};
+        var count = 0;
+        var rows = filesEl.querySelectorAll('[data-job-id]');
+        rows.forEach(function (row) {
+          var status = row.getAttribute('data-job-status');
+          if (status !== 'uploaded' && status !== 'error') return;
+          var select = row.querySelector('select[name="target"]');
+          if (!select) return;
+          payload['target_' + row.getAttribute('data-job-id')] = select.value;
+          count++;
         });
+        if (!count || typeof htmx === 'undefined') return;
+        htmx.ajax('POST', '/convert-all', { values: payload, swap: 'none' });
       });
     }
+
+    document.body.addEventListener('htmx:beforeRequest', function (ev) {
+      if (ev.detail && ev.detail.elt && ev.detail.elt.id === 'upload-form') {
+        var errBox = document.getElementById('upload-error');
+        if (errBox) errBox.innerHTML = '';
+      }
+    });
+
+    document.body.addEventListener('htmx:beforeSwap', function (ev) {
+      if (ev.detail && ev.detail.xhr && ev.detail.xhr.status === 413) {
+        var errBox = document.getElementById('upload-error');
+        if (errBox) {
+          errBox.innerHTML = ev.detail.serverResponse || '';
+        }
+        ev.detail.shouldSwap = false;
+      }
+    });
 
     document.body.addEventListener('htmx:afterRequest', function (ev) {
       if (ev.detail && ev.detail.elt && ev.detail.elt.id === 'upload-form' && picker) {

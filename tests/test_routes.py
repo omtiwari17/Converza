@@ -226,6 +226,121 @@ class RoutesTests(unittest.TestCase):
         self.assertIsNone(jobs.get_job(job['id']))
         self.assertFalse((config.UPLOAD_DIR / job['id']).exists())
 
+    def test_retry_after_error_recovers_to_done(self):
+        if not registry.get_tools()['pdftotext']:
+            self.skipTest('pdftotext not installed')
+
+        res = self.client.post(
+            '/upload',
+            data={'files': (io.BytesIO(b'bad pdf'), 'retry_me.pdf')},
+            content_type='multipart/form-data',
+        )
+        job_id = self._extract_job_id(res.get_data(as_text=True))
+        self.client.post(f'/convert/{job_id}', data={'target': 'txt'})
+        err_html = self._wait_until_finished(job_id)
+        self.assertIn('data-job-status="error"', err_html)
+
+        # Replace input with a valid PDF and hit Retry via POST /convert/<job_id>
+        (config.UPLOAD_DIR / job_id / 'in.pdf').write_bytes(_make_sample_pdf('Recovered PDF'))
+        retry_res = self.client.post(f'/convert/{job_id}', data={'target': 'txt'})
+        self.assertEqual(retry_res.status_code, 200)
+        done_html = self._wait_until_finished(job_id)
+        self.assertIn('data-job-status="done"', done_html)
+
+    def test_five_mixed_files_convert_all_and_zip(self):
+        # Mock full tool availability and subprocess conversion so 5 mixed categories
+        # (video, audio, image, document, pdf) convert in one go and download as one ZIP.
+        fake_tools = {
+            'ffmpeg': 'ffmpeg',
+            'magick': 'magick',
+            'magick_pdf': True,
+            'tesseract': 'tesseract',
+            'pandoc': 'pandoc',
+            'pdftoppm': 'pdftoppm',
+            'pdftotext': 'pdftotext',
+        }
+
+        def fake_subprocess_run(cmd, **_kwargs):
+            # Write synthetic output for the target command
+            if cmd[0] == 'tesseract':
+                Path(f'{cmd[2]}.txt').write_text('ocr result', encoding='utf-8')
+            elif cmd[0] == 'pdftoppm':
+                ext = 'png' if '-png' in cmd else 'jpg'
+                Path(f'{cmd[3]}-1.{ext}').write_bytes(b'page1')
+                Path(f'{cmd[3]}-2.{ext}').write_bytes(b'page2')
+            elif cmd[0] == 'pandoc':
+                Path(cmd[3]).write_text('<h1>doc</h1>', encoding='utf-8')
+            else:
+                Path(cmd[-1]).write_bytes(b'converted-bytes')
+            return mock.Mock(returncode=0)
+
+        with mock.patch('registry.get_tools', return_value=fake_tools), \
+             mock.patch('jobs.subprocess.run', side_effect=fake_subprocess_run):
+            files_payload = [
+                (io.BytesIO(b'mp4data'), 'clip.mp4'),
+                (io.BytesIO(b'wavdata'), 'song.wav'),
+                (io.BytesIO(_make_png(4, 4)), 'photo.png'),
+                (io.BytesIO(b'# Title'), 'notes.md'),
+                (io.BytesIO(_make_sample_pdf()), 'slides.pdf'),
+            ]
+            up_res = self.client.post(
+                '/upload',
+                data={'files': files_payload},
+                content_type='multipart/form-data',
+            )
+            self.assertEqual(up_res.status_code, 200)
+            up_html = up_res.get_data(as_text=True)
+            ids = re.findall(r'data-job-id="([0-9a-f]+)"', up_html)
+            self.assertEqual(len(ids), 5)
+
+            bulk_payload = {
+                f'target_{ids[0]}': 'mp3',
+                f'target_{ids[1]}': 'flac',
+                f'target_{ids[2]}': 'webp',
+                f'target_{ids[3]}': 'html',
+                f'target_{ids[4]}': 'png',
+            }
+            conv_res = self.client.post(
+                '/convert-all',
+                data=bulk_payload,
+                headers={'HX-Request': 'true'},
+            )
+            self.assertEqual(conv_res.status_code, 200)
+            conv_html = conv_res.get_data(as_text=True)
+            self.assertIn('hx-swap-oob="outerHTML"', conv_html)
+
+            for jid in ids:
+                done_html = self._wait_until_finished(jid)
+                self.assertIn('data-job-status="done"', done_html)
+
+            zip_res = self.client.get(f"/zip?ids={','.join(ids)}")
+            self.assertEqual(zip_res.status_code, 200)
+            self.assertEqual(zip_res.mimetype, 'application/zip')
+            zip_bytes = zip_res.data
+            zip_res.close()
+
+            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                names = zf.namelist()
+                self.assertEqual(
+                    sorted(names),
+                    ['clip.mp3', 'notes.html', 'photo.webp', 'slides.zip', 'song.flac'],
+                )
+
+    def test_zip_rejects_empty_and_incomplete_jobs(self):
+        self.assertEqual(self.client.get('/zip').status_code, 400)
+        job, _ = jobs.create_job('pending.pdf', 'pdf', 'pdf', size=10)
+        self.assertEqual(self.client.get(f"/zip?ids={job['id']}").status_code, 404)
+
+    def test_413_handler_returns_clean_alert(self):
+        self.app.config['MAX_CONTENT_LENGTH'] = 16
+        res = self.client.post(
+            '/upload',
+            data={'files': (io.BytesIO(b'x' * 128), 'big.txt')},
+            content_type='multipart/form-data',
+        )
+        self.assertEqual(res.status_code, 413)
+        self.assertIn('size limit', res.get_data(as_text=True))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

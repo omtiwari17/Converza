@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from werkzeug.utils import secure_filename
 
 from config import CONVERT_TIMEOUT, JOB_TTL_SECONDS, OUTPUT_DIR, UPLOAD_DIR
 import registry
@@ -177,3 +181,42 @@ def start_cleanup_thread() -> None:
             return
         threading.Thread(target=cleanup_loop, daemon=True, name='converza-cleanup').start()
         _CLEANUP_STARTED = True
+
+
+def build_zip_archive(job_ids: list[str]) -> Path:
+    """Bundle finished job outputs into a temporary ZIP file on disk.
+
+    Raises LookupError if any job is missing or not finished, or FileNotFoundError
+    if an output file no longer exists on disk.
+    """
+    entries: list[tuple[Path, str]] = []
+    seen_names: dict[str, int] = {}
+
+    for jid in job_ids:
+        job = get_job(jid)
+        if job is None or job['status'] != 'done' or not job['output']:
+            raise LookupError(jid)
+        out_path = Path(job['output'])
+        if not out_path.is_file():
+            raise FileNotFoundError(jid)
+
+        stem = secure_filename(Path(job['name']).stem) or 'converted'
+        ext = out_path.suffix
+        base_name = f'{stem}{ext}'
+        count = seen_names.get(base_name, 0) + 1
+        seen_names[base_name] = count
+        arcname = base_name if count == 1 else f'{stem}_{count}{ext}'
+        entries.append((out_path, arcname))
+
+    fd, tmp_name = tempfile.mkstemp(prefix='converza_', suffix='.zip')
+    os.close(fd)
+    zip_path = Path(tmp_name)
+    try:
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for src_path, arcname in entries:
+                zf.write(src_path, arcname=arcname)
+    except Exception:
+        zip_path.unlink(missing_ok=True)
+        raise
+    return zip_path
+

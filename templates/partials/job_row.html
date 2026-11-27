@@ -2,6 +2,7 @@
          data-job-id="{{ job.id }}"
          data-job-status="{{ job.status }}"
          class="card bg-base-100 converza-card rounded-xl p-4"
+         {% if oob %}hx-swap-oob="outerHTML"{% endif %}
          {% if job.status in ('queued', 'running') %}
          hx-get="/jobs/{{ job.id }}"
          hx-trigger="every 1s"
