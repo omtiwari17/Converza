@@ -145,7 +145,7 @@
             {% else %}
             <span class="h-2 w-2 rounded-full bg-rose-400" aria-hidden="true"></span>
             {% endif %}
-            <span class="text-sm font-semibold capitalize">{{ item.category }}</span>
+            <span class="text-sm font-semibold">{% if item.category == 'pdf' %}PDF{% else %}{{ item.category | capitalize }}{% endif %}</span>
           </div>
           <p class="font-mono text-xs opacity-65">{{ item.inputs | join(', ') }}</p>
           <p class="mt-1.5 text-xs font-medium opacity-90">→ {{ item.targets | join(', ') }}</p>
@@ -156,17 +156,20 @@
     {% endif %}
   </div>
 
-  <!-- Right Sidebar on Desktop: Conversion Options + Engine Status -->
+  <!-- Right Sidebar on Desktop: Contextual Conversion Options + Engine Status -->
   <aside class="space-y-4 lg:col-span-4">
     {% if tools.ffmpeg or tools.magick or tools.tesseract %}
     <section id="conversion-options" class="hidden lg:block converza-card rounded-2xl p-4 sm:p-5">
-      <div class="mb-3.5 flex items-center justify-between gap-2">
+      <div class="mb-3 flex items-center justify-between gap-2">
         <h2 class="text-sm font-semibold tracking-tight">Conversion options</h2>
-        <button type="button" id="reset-options-btn" class="text-xs font-medium text-primary hover:underline">Reset</button>
+        <button type="button" id="reset-options-btn" class="hidden text-xs font-medium text-primary hover:underline">Reset</button>
       </div>
-      <div class="space-y-3.5">
+      <p id="options-empty-hint" class="text-xs leading-relaxed opacity-65">
+        Relevant settings appear automatically when you add video, audio, or image files.
+      </p>
+      <div id="options-fields" class="hidden space-y-3.5">
         {% if tools.ffmpeg %}
-        <label class="flex flex-col gap-1.5">
+        <label data-option-group="video_height" class="hidden flex-col gap-1.5">
           <span class="text-[13px] font-medium opacity-75">Video resolution</span>
           <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Original</option>
@@ -175,7 +178,7 @@
             <option value="480">480p (Fastest)</option>
           </select>
         </label>
-        <label class="flex flex-col gap-1.5">
+        <label data-option-group="audio_bitrate" class="hidden flex-col gap-1.5">
           <span class="text-[13px] font-medium opacity-75">Audio bitrate</span>
           <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Default</option>
@@ -187,7 +190,7 @@
         </label>
         {% endif %}
         {% if tools.magick %}
-        <label class="flex flex-col gap-1.5">
+        <label data-option-group="image_quality" class="hidden flex-col gap-1.5">
           <span class="text-[13px] font-medium opacity-75">JPG / WebP quality</span>
           <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Default</option>
@@ -198,7 +201,7 @@
         </label>
         {% endif %}
         {% if tools.tesseract %}
-        <label class="flex flex-col gap-1.5">
+        <label data-option-group="ocr_lang" class="hidden flex-col gap-1.5">
           <span class="text-[13px] font-medium opacity-75">OCR language</span>
           <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Default (eng)</option>
@@ -261,6 +264,8 @@
     var optsPanel = document.getElementById('conversion-options');
     var optsDot = document.getElementById('options-active-dot');
     var resetOptsBtn = document.getElementById('reset-options-btn');
+    var optsEmptyHint = document.getElementById('options-empty-hint');
+    var optsFields = document.getElementById('options-fields');
 
     if (toggleOptsBtn && optsPanel) {
       toggleOptsBtn.addEventListener('click', function () {
@@ -268,6 +273,69 @@
         optsPanel.classList.toggle('hidden', !isHidden);
         toggleOptsBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
       });
+    }
+
+    function syncContextualOptions() {
+      if (!optsPanel || !filesEl) return;
+      var needed = {
+        video_height: false,
+        audio_bitrate: false,
+        image_quality: false,
+        ocr_lang: false
+      };
+      var rows = filesEl.querySelectorAll('[data-job-id]');
+      var hasActionable = false;
+
+      rows.forEach(function (row) {
+        var st = row.getAttribute('data-job-status');
+        if (st !== 'uploaded' && st !== 'error') return;
+        hasActionable = true;
+        var cat = row.getAttribute('data-job-category');
+        var sel = row.querySelector('select[name="target"]');
+        var tgt = sel ? sel.value : '';
+
+        if (cat === 'video') {
+          if (tgt === 'mp3' || tgt === 'm4a' || tgt === 'ogg') {
+            needed.audio_bitrate = true;
+          } else if (tgt !== 'wav') {
+            needed.video_height = true;
+          }
+        } else if (cat === 'audio') {
+          if (tgt === 'mp3' || tgt === 'm4a' || tgt === 'ogg') {
+            needed.audio_bitrate = true;
+          }
+        } else if (cat === 'image') {
+          if (tgt === 'ocr_txt') {
+            needed.ocr_lang = true;
+          } else if (tgt === 'jpg' || tgt === 'webp') {
+            needed.image_quality = true;
+          }
+        }
+      });
+
+      var anyVisible = false;
+      Object.keys(needed).forEach(function (key) {
+        var grp = optsPanel.querySelector('[data-option-group="' + key + '"]');
+        if (!grp) return;
+        var show = needed[key];
+        grp.classList.toggle('hidden', !show);
+        grp.classList.toggle('flex', show);
+        if (show) anyVisible = true;
+      });
+
+      if (optsFields) optsFields.classList.toggle('hidden', !anyVisible);
+      if (resetOptsBtn) resetOptsBtn.classList.toggle('hidden', !anyVisible);
+      if (optsEmptyHint) {
+        optsEmptyHint.classList.toggle('hidden', anyVisible);
+        if (!anyVisible) {
+          optsEmptyHint.textContent = hasActionable
+            ? 'No extra options are needed for your selected formats.'
+            : 'Relevant settings appear automatically when you add video, audio, or image files.';
+        }
+      }
+      if (toggleOptsBtn) {
+        toggleOptsBtn.classList.toggle('hidden', !anyVisible);
+      }
     }
 
     function syncOptionsDot() {
@@ -282,6 +350,9 @@
     if (optsPanel) {
       optsPanel.addEventListener('change', syncOptionsDot);
     }
+    if (filesEl) {
+      filesEl.addEventListener('change', syncContextualOptions);
+    }
     if (resetOptsBtn && optsPanel) {
       resetOptsBtn.addEventListener('click', function () {
         optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
@@ -290,6 +361,7 @@
         syncOptionsDot();
       });
     }
+    syncContextualOptions();
 
     function queueFiles(fileList) {
       if (!picker || !fileList || !fileList.length) return;
@@ -538,6 +610,7 @@
 
     document.body.addEventListener('htmx:afterSettle', function (ev) {
       syncBulkBar();
+      syncContextualOptions();
       var target = ev.detail && ev.detail.target;
       if (target && target.getAttribute && target.getAttribute('data-job-status') === 'done' && liveStatus) {
         var nameEl = target.querySelector('[data-job-name]');

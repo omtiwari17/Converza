@@ -1,5 +1,6 @@
 <article id="job-{{ job.id }}"
          data-job-id="{{ job.id }}"
+         data-job-category="{{ job.category }}"
          data-job-status="{{ job.status }}"
          class="card bg-base-100 converza-card rounded-xl p-4"
          {% if oob %}hx-swap-oob="outerHTML"{% endif %}
@@ -45,7 +46,7 @@
       <div class="min-w-0 flex-1">
         <p data-job-name class="converza-filename text-sm font-medium leading-snug">{{ job.name }}</p>
         <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs opacity-70 tabular-nums">
-          <span class="capitalize">{{ job.category }}</span>
+          <span>{% if job.category == 'pdf' %}PDF{% else %}{{ job.category | capitalize }}{% endif %}</span>
           <span>·</span>
           <span>{{ job.size | format_size }}</span>
           {% if job.target %}
