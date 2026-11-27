@@ -72,6 +72,45 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             registry.build_cmd('video', 'in.mp4', 'out', 'docx', require_tool=False)
 
+    def test_conversion_options_whitelist_and_flags(self):
+        cmd, _ = registry.build_cmd(
+            'video', 'in.mp4', 'out', 'mp4',
+            require_tool=False,
+            options={'video_height': '720', 'audio_bitrate': '128k'},
+        )
+        self.assertIn('-vf', cmd)
+        self.assertIn('scale=-2:720', cmd)
+        self.assertNotIn('-b:a', cmd)
+
+        cmd_a, _ = registry.build_cmd(
+            'audio', 'in.wav', 'out', 'mp3',
+            require_tool=False,
+            options={'audio_bitrate': '192k'},
+        )
+        self.assertIn('-b:a', cmd_a)
+        self.assertIn('192k', cmd_a)
+
+        cmd_i, _ = registry.build_cmd(
+            'image', 'in.png', 'out', 'webp',
+            require_tool=False,
+            options={'image_quality': '85'},
+        )
+        self.assertIn('-quality', cmd_i)
+        self.assertIn('85', cmd_i)
+
+        cmd_o, _ = registry.build_cmd(
+            'image', 'in.png', 'out', 'ocr_txt',
+            require_tool=False,
+            options={'ocr_lang': 'eng'},
+        )
+        self.assertIn('-l', cmd_o)
+        self.assertIn('eng', cmd_o)
+
+        with self.assertRaises(ValueError):
+            registry.validate_options({'video_height': '9999; rm -rf /'})
+        with self.assertRaises(ValueError):
+            registry.validate_options({'ocr_lang': 'invalid_lang'})
+
     def test_available_targets_hides_missing_tools_and_pdf_policy(self):
         fake_tools = {
             'ffmpeg': None,

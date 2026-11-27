@@ -1,6 +1,22 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<div id="drop-overlay"
+     class="pointer-events-none fixed inset-0 z-50 hidden items-center justify-center bg-base-200/85 p-6 backdrop-blur-sm"
+     aria-hidden="true">
+  <div class="flex max-w-sm flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-base-100 px-8 py-8 text-center converza-card">
+    <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-base-200 text-primary">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" x2="12" y1="3" y2="15"/>
+      </svg>
+    </span>
+    <span class="text-base font-semibold tracking-tight">Drop files anywhere to upload</span>
+    <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Files stay local on this device</span>
+  </div>
+</div>
+
 <section class="card bg-base-100 converza-card rounded-2xl p-4 sm:p-5">
   <form id="upload-form"
         hx-post="/upload"
@@ -20,7 +36,7 @@
           <line x1="12" x2="12" y1="3" y2="15"/>
         </svg>
       </span>
-      <span class="text-sm font-medium">Tap to choose files or drop here</span>
+      <span class="text-sm font-medium">Tap to choose files, drop anywhere, or paste</span>
       <span class="font-mono text-[11px] uppercase tracking-wider opacity-65 tabular-nums">
         Max {{ max_upload_mb }} MB · Files stay on your device
       </span>
@@ -31,26 +47,84 @@
     </div>
   </form>
 
-  {% if capabilities %}
-  <details class="converza-details mt-3 rounded-xl bg-base-200/50 px-3 py-2 text-xs">
-    <summary class="flex min-h-[36px] cursor-pointer items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-wider opacity-75">
-      <span>Supported formats on this device ({{ capabilities | length }} {% if capabilities | length == 1 %}category{% else %}categories{% endif %})</span>
-      <svg class="converza-chevron shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m6 9 6 6 6-6"/>
-      </svg>
-    </summary>
-    <dl class="mt-2 space-y-2 border-t border-base-content/10 pt-2">
-      {% for item in capabilities %}
-      <div class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
-        <dt class="w-24 shrink-0 font-mono text-[11px] uppercase tracking-wider text-primary">{{ item.category }}</dt>
-        <dd class="opacity-80">
-          {{ item.inputs | join(', ') }} → {{ item.targets | join(', ') }}
-        </dd>
+  <div class="mt-3 space-y-2">
+    {% if tools.ffmpeg or tools.magick or tools.tesseract %}
+    <details id="conversion-options" class="converza-details rounded-xl bg-base-200/50 px-3 py-2 text-xs">
+      <summary class="flex min-h-[36px] cursor-pointer items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-wider opacity-75">
+        <span>Conversion options (quality, resolution, OCR)</span>
+        <svg class="converza-chevron shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </summary>
+      <div class="mt-2 grid grid-cols-1 gap-3 border-t border-base-content/10 pt-3 sm:grid-cols-2">
+        {% if tools.ffmpeg %}
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Video max height</span>
+          <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+            <option value="">Original</option>
+            <option value="1080">1080p</option>
+            <option value="720">720p (Recommended for phone)</option>
+            <option value="480">480p (Fastest)</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Audio bitrate</span>
+          <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+            <option value="">Default</option>
+            <option value="320k">320 kbps</option>
+            <option value="192k">192 kbps</option>
+            <option value="128k">128 kbps</option>
+            <option value="96k">96 kbps</option>
+          </select>
+        </label>
+        {% endif %}
+        {% if tools.magick %}
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">JPG / WebP quality</span>
+          <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+            <option value="">Default</option>
+            <option value="95">95 (High)</option>
+            <option value="85">85 (Balanced)</option>
+            <option value="70">70 (Compact)</option>
+          </select>
+        </label>
+        {% endif %}
+        {% if tools.tesseract %}
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">OCR language</span>
+          <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+            <option value="">Default (eng)</option>
+            {% for lang in tools.ocr_langs %}
+            <option value="{{ lang }}">{{ lang }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
       </div>
-      {% endfor %}
-    </dl>
-  </details>
-  {% endif %}
+    </details>
+    {% endif %}
+
+    {% if capabilities %}
+    <details class="converza-details rounded-xl bg-base-200/50 px-3 py-2 text-xs">
+      <summary class="flex min-h-[36px] cursor-pointer items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-wider opacity-75">
+        <span>Supported formats on this device ({{ capabilities | length }} {% if capabilities | length == 1 %}category{% else %}categories{% endif %})</span>
+        <svg class="converza-chevron shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </summary>
+      <dl class="mt-2 space-y-2 border-t border-base-content/10 pt-2">
+        {% for item in capabilities %}
+        <div class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+          <dt class="w-24 shrink-0 font-mono text-[11px] uppercase tracking-wider text-primary">{{ item.category }}</dt>
+          <dd class="opacity-80">
+            {{ item.inputs | join(', ') }} → {{ item.targets | join(', ') }}
+          </dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </details>
+    {% endif %}
+  </div>
 </section>
 
 <div id="live-status" class="sr-only" role="status" aria-live="polite"></div>
@@ -76,6 +150,11 @@
               class="btn btn-ghost btn-sm min-h-[44px] px-3 hidden">
         Clear done
       </button>
+      <button id="clear-all-btn"
+              type="button"
+              class="btn btn-ghost btn-sm min-h-[44px] px-3">
+        Clear all
+      </button>
     </div>
   </div>
 </section>
@@ -88,44 +167,85 @@
   (function () {
     var picker = document.getElementById('picker');
     var dropzone = document.getElementById('dropzone');
+    var dropOverlay = document.getElementById('drop-overlay');
     var filesEl = document.getElementById('files');
     var bulkBar = document.getElementById('bulk-bar');
     var bulkSummary = document.getElementById('bulk-summary');
     var convertAllBtn = document.getElementById('convert-all-btn');
     var downloadZipBtn = document.getElementById('download-zip-btn');
     var clearDoneBtn = document.getElementById('clear-done-btn');
+    var clearAllBtn = document.getElementById('clear-all-btn');
     var liveStatus = document.getElementById('live-status');
+    var dragDepth = 0;
 
-    if (dropzone && picker) {
-      ['dragenter', 'dragover'].forEach(function (evName) {
-        dropzone.addEventListener(evName, function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          dropzone.classList.add('border-primary', 'bg-base-200');
-        });
-      });
-
-      ['dragleave', 'drop'].forEach(function (evName) {
-        dropzone.addEventListener(evName, function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          dropzone.classList.remove('border-primary', 'bg-base-200');
-        });
-      });
-
-      dropzone.addEventListener('drop', function (ev) {
-        var dropped = ev.dataTransfer && ev.dataTransfer.files;
-        if (!dropped || !dropped.length) return;
-        try {
-          var dt = new DataTransfer();
-          for (var i = 0; i < dropped.length; i++) dt.items.add(dropped[i]);
-          picker.files = dt.files;
-        } catch (e) {
-          picker.files = dropped;
-        }
-        picker.dispatchEvent(new Event('change', { bubbles: true }));
-      });
+    function queueFiles(fileList) {
+      if (!picker || !fileList || !fileList.length) return;
+      try {
+        var dt = new DataTransfer();
+        for (var i = 0; i < fileList.length; i++) dt.items.add(fileList[i]);
+        picker.files = dt.files;
+      } catch (e) {
+        picker.files = fileList;
+      }
+      picker.dispatchEvent(new Event('change', { bubbles: true }));
     }
+
+    function setDragging(active) {
+      if (dropzone) {
+        dropzone.classList.toggle('border-primary', active);
+        dropzone.classList.toggle('bg-base-200', active);
+      }
+      if (dropOverlay) {
+        dropOverlay.classList.toggle('hidden', !active);
+        dropOverlay.classList.toggle('flex', active);
+      }
+    }
+
+    function hasFiles(ev) {
+      var types = ev.dataTransfer && ev.dataTransfer.types;
+      if (!types) return false;
+      for (var i = 0; i < types.length; i++) {
+        if (types[i] === 'Files') return true;
+      }
+      return false;
+    }
+
+    window.addEventListener('dragenter', function (ev) {
+      if (!hasFiles(ev)) return;
+      ev.preventDefault();
+      dragDepth++;
+      setDragging(true);
+    });
+
+    window.addEventListener('dragover', function (ev) {
+      if (!hasFiles(ev)) return;
+      ev.preventDefault();
+      if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+    });
+
+    window.addEventListener('dragleave', function (ev) {
+      if (!hasFiles(ev)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) setDragging(false);
+    });
+
+    window.addEventListener('drop', function (ev) {
+      ev.preventDefault();
+      dragDepth = 0;
+      setDragging(false);
+      var dropped = ev.dataTransfer && ev.dataTransfer.files;
+      if (dropped && dropped.length) queueFiles(dropped);
+    });
+
+    document.addEventListener('paste', function (ev) {
+      var target = ev.target;
+      if (target && target.matches && target.matches('input, textarea, select')) return;
+      var files = ev.clipboardData && ev.clipboardData.files;
+      if (files && files.length) {
+        ev.preventDefault();
+        queueFiles(files);
+      }
+    });
 
     function syncBulkBar() {
       if (!filesEl || !bulkBar) return;
@@ -138,20 +258,19 @@
       bulkBar.classList.remove('hidden');
       var doneIds = [];
       var actionable = 0;
+      var removable = 0;
       rows.forEach(function (row) {
         var st = row.getAttribute('data-job-status');
         if (st === 'done') doneIds.push(row.getAttribute('data-job-id'));
         if (st === 'uploaded' || st === 'error') actionable++;
+        if (st !== 'queued' && st !== 'running') removable++;
       });
       if (bulkSummary) {
         bulkSummary.textContent = total + ' files · ' + doneIds.length + ' ready';
       }
-      if (convertAllBtn) {
-        convertAllBtn.disabled = actionable === 0;
-      }
-      if (clearDoneBtn) {
-        clearDoneBtn.classList.toggle('hidden', doneIds.length === 0);
-      }
+      if (convertAllBtn) convertAllBtn.disabled = actionable === 0;
+      if (clearAllBtn) clearAllBtn.disabled = removable === 0;
+      if (clearDoneBtn) clearDoneBtn.classList.toggle('hidden', doneIds.length === 0);
       if (downloadZipBtn) {
         if (doneIds.length >= 1) {
           downloadZipBtn.classList.remove('btn-disabled');
@@ -178,6 +297,12 @@
           payload['target_' + row.getAttribute('data-job-id')] = select.value;
           count++;
         });
+        var optsRoot = document.getElementById('conversion-options');
+        if (optsRoot) {
+          optsRoot.querySelectorAll('select[name]').forEach(function (sel) {
+            if (sel.value) payload[sel.name] = sel.value;
+          });
+        }
         if (!count || typeof htmx === 'undefined') return;
         htmx.ajax('POST', '/convert-all', { values: payload, swap: 'none' });
       });
@@ -185,10 +310,95 @@
 
     if (clearDoneBtn && filesEl) {
       clearDoneBtn.addEventListener('click', function () {
-        var doneRemoveBtns = filesEl.querySelectorAll('[data-job-status="done"] [data-remove-job]');
-        doneRemoveBtns.forEach(function (btn) {
+        filesEl.querySelectorAll('[data-job-status="done"] [data-remove-job]').forEach(function (btn) {
           btn.click();
         });
+      });
+    }
+
+    if (clearAllBtn && filesEl) {
+      clearAllBtn.addEventListener('click', function () {
+        filesEl.querySelectorAll('[data-remove-job]').forEach(function (btn) {
+          btn.click();
+        });
+      });
+    }
+
+    // Copy extracted text button with CommandEvent + LAN HTTP execCommand fallback
+    var copyTimers = new WeakMap();
+    var lastCopyMessage = '';
+
+    function legacyCopy(text) {
+      var prev = document.activeElement;
+      var field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.cssText = 'position:fixed;inset-block-start:0;opacity:0';
+      document.body.appendChild(field);
+      field.select();
+      try {
+        return document.execCommand('copy');
+      } finally {
+        field.remove();
+        if (prev && prev.focus) prev.focus({ preventScroll: true });
+      }
+    }
+
+    function reportCopy(button, ok) {
+      var tip = button.nextElementSibling;
+      clearTimeout(copyTimers.get(button));
+      button.removeAttribute('data-copied');
+      button.removeAttribute('data-failed');
+      var message = ok ? 'Copied' : 'Copy failed';
+      if (message === lastCopyMessage) message += '\u00A0';
+      lastCopyMessage = message;
+      if (tip) tip.textContent = '';
+      void button.offsetWidth;
+      button.setAttribute(ok ? 'data-copied' : 'data-failed', '');
+      requestAnimationFrame(function () {
+        if (tip) tip.textContent = message;
+      });
+      copyTimers.set(button, setTimeout(function () {
+        button.removeAttribute('data-copied');
+        button.removeAttribute('data-failed');
+        if (tip) tip.textContent = '';
+      }, 2000));
+    }
+
+    async function copyTargetText(button, target) {
+      var text = target ? (target.innerText || target.textContent || '').trim() : '';
+      if (!text) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else if (!legacyCopy(text)) {
+          throw new Error('Copy failed');
+        }
+        reportCopy(button, true);
+      } catch (e) {
+        try {
+          if (legacyCopy(text)) {
+            reportCopy(button, true);
+            return;
+          }
+        } catch (err) {}
+        reportCopy(button, false);
+      }
+    }
+
+    if ('CommandEvent' in window) {
+      document.addEventListener('command', function (ev) {
+        if (ev.command && ev.command.indexOf('--copy') === 0) {
+          copyTargetText(ev.source, ev.target);
+        }
+      }, true);
+    } else {
+      document.addEventListener('click', function (ev) {
+        if (ev.defaultPrevented) return;
+        var btn = ev.target && ev.target.closest && ev.target.closest('button[command^="--copy"]');
+        if (!btn) return;
+        var target = document.getElementById(btn.getAttribute('commandfor'));
+        if (target) copyTargetText(btn, target);
       });
     }
 

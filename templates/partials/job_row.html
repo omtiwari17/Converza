@@ -75,6 +75,7 @@
             hx-post="/convert/{{ job.id }}"
             hx-target="#job-{{ job.id }}"
             hx-swap="outerHTML"
+            hx-include="#conversion-options"
             class="flex flex-1 items-center gap-2 sm:flex-none">
         <select name="target"
                 aria-label="Convert {{ job.name }} to"
@@ -98,10 +99,22 @@
       </button>
     </div>
     {% elif job.status == 'done' %}
-    <div class="flex w-full items-center justify-end gap-2 sm:w-auto">
+    <div class="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+      {% if job.can_preview_text %}
+      <button type="button"
+              hx-get="/jobs/{{ job.id }}/text"
+              hx-target="#preview-{{ job.id }}"
+              hx-swap="innerHTML"
+              class="btn btn-outline btn-sm min-h-[44px] flex-1 gap-1.5 px-3 sm:flex-none">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span>Preview</span>
+      </button>
+      {% endif %}
       <a href="/download/{{ job.id }}"
          download
-         class="btn btn-primary btn-sm min-h-[44px] w-full gap-2 px-4 sm:w-auto">
+         class="btn btn-primary btn-sm min-h-[44px] flex-1 gap-2 px-4 sm:flex-none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -124,6 +137,10 @@
     {% endif %}
   </div>
 
+  {% if job.status == 'done' and job.can_preview_text %}
+  <div id="preview-{{ job.id }}"></div>
+  {% endif %}
+
   {% if job.status in ('queued', 'running') %}
   <div class="mt-3 space-y-1.5">
     <div class="flex items-center justify-between font-mono text-[11px] uppercase tracking-wider opacity-70">
@@ -144,6 +161,7 @@
             hx-post="/convert/{{ job.id }}"
             hx-target="#job-{{ job.id }}"
             hx-swap="outerHTML"
+            hx-include="#conversion-options"
             class="flex flex-1 items-center gap-2 sm:flex-none">
         <select name="target"
                 aria-label="Retry {{ job.name }} as"

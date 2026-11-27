@@ -26,6 +26,21 @@ TARGET_LABELS: dict[str, str] = {
     'ocr_txt': 'Text (OCR)',
 }
 
+VIDEO_HEIGHTS: dict[str, int | None] = {
+    '': None,
+    '1080': 1080,
+    '720': 720,
+    '480': 480,
+}
+
+AUDIO_BITRATES: tuple[str, ...] = ('', '320k', '192k', '128k', '96k')
+IMAGE_QUALITIES: dict[str, int | None] = {
+    '': None,
+    '95': 95,
+    '85': 85,
+    '70': 70,
+}
+
 
 def target_label(target: str) -> str:
     """Return the user-facing display label for a conversion target."""
@@ -83,15 +98,39 @@ def _can_magick_write_pdf(magick_bin: str | None) -> bool:
         return False
 
 
+def _ocr_langs(tesseract_bin: str | None) -> list[str]:
+    """Return installed Tesseract language codes (always including 'eng' fallback)."""
+    if not tesseract_bin:
+        return []
+    try:
+        res = subprocess.run(
+            [tesseract_bin, '--list-langs'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        lines = [line.strip() for line in f'{res.stdout}\n{res.stderr}'.splitlines()]
+        langs = [
+            line for line in lines
+            if line and not line.lower().startswith('list of available languages')
+            and line.replace('_', '').isalnum()
+        ]
+        return langs or ['eng']
+    except (OSError, subprocess.SubprocessError):
+        return ['eng']
+
+
 @lru_cache(maxsize=1)
-def get_tools() -> dict[str, str | bool | None]:
+def get_tools() -> dict[str, str | bool | list[str] | None]:
     """Discover installed converter binaries and capabilities once."""
     magick_bin = _find_magick()
+    tesseract_bin = shutil.which('tesseract')
     return {
         'ffmpeg': shutil.which('ffmpeg'),
         'magick': magick_bin,
         'magick_pdf': _can_magick_write_pdf(magick_bin),
-        'tesseract': shutil.which('tesseract'),
+        'tesseract': tesseract_bin,
+        'ocr_langs': _ocr_langs(tesseract_bin),
         'pandoc': shutil.which('pandoc'),
         'pdftoppm': shutil.which('pdftoppm'),
         'pdftotext': shutil.which('pdftotext'),
@@ -133,6 +172,33 @@ def available_targets(category: str) -> list[str]:
     return [t for t in TARGETS[category] if is_target_available(category, t)]
 
 
+def validate_options(raw_options: dict | None) -> dict[str, str]:
+    """Validate and normalize optional conversion settings against strict whitelists."""
+    opts = raw_options or {}
+    video_height = str(opts.get('video_height', '')).strip()
+    audio_bitrate = str(opts.get('audio_bitrate', '')).strip()
+    image_quality = str(opts.get('image_quality', '')).strip()
+    ocr_lang = str(opts.get('ocr_lang', '')).strip()
+
+    if video_height not in VIDEO_HEIGHTS:
+        raise ValueError(f'Unsupported video resolution: {video_height}')
+    if audio_bitrate not in AUDIO_BITRATES:
+        raise ValueError(f'Unsupported audio bitrate: {audio_bitrate}')
+    if image_quality not in IMAGE_QUALITIES:
+        raise ValueError(f'Unsupported image quality: {image_quality}')
+
+    installed_langs = get_tools().get('ocr_langs') or []
+    if ocr_lang and ocr_lang not in installed_langs and ocr_lang != 'eng':
+        raise ValueError(f'Unsupported OCR language: {ocr_lang}')
+
+    return {
+        'video_height': video_height,
+        'audio_bitrate': audio_bitrate,
+        'image_quality': image_quality,
+        'ocr_lang': ocr_lang,
+    }
+
+
 def build_cmd(
     category: str,
     src: str | Path,
@@ -140,6 +206,7 @@ def build_cmd(
     target: str,
     *,
     require_tool: bool = True,
+    options: dict | None = None,
 ) -> tuple[list[str], str]:
     """Build subprocess argument list and expected output path without shell=True.
 
@@ -149,6 +216,7 @@ def build_cmd(
         dst_base: Output path WITHOUT extension.
         target: Target key from TARGETS[category].
         require_tool: If True, raise RuntimeError when the required tool is missing.
+        options: Optional whitelisted quality/resolution/OCR settings.
 
     Returns:
         Tuple of (cmd_list, expected_output_path).
@@ -156,6 +224,7 @@ def build_cmd(
     if category not in TARGETS or target not in TARGETS[category]:
         raise ValueError(f'Unsupported conversion: {category} -> {target}')
 
+    clean_opts = validate_options(options)
     tools = get_tools()
     if require_tool and not is_target_available(category, target):
         raise RuntimeError(f'Required converter tool is not available for {category} -> {target}')
@@ -168,19 +237,38 @@ def build_cmd(
     if category in ('video', 'audio'):
         ffmpeg = str(tools['ffmpeg'] or 'ffmpeg')
         cmd = [ffmpeg, '-y', '-i', src_str]
-        if category == 'video' and target in ('mp3', 'wav', 'm4a'):
+        height = VIDEO_HEIGHTS[clean_opts['video_height']]
+        bitrate = clean_opts['audio_bitrate']
+        is_audio_out = target in ('mp3', 'wav', 'm4a', 'flac', 'ogg')
+
+        if category == 'video' and is_audio_out:
             cmd.append('-vn')
         if target == 'gif':
-            cmd.extend(['-vf', 'fps=10,scale=480:-1'])
+            gif_width = 480 if height is None else min(480, height)
+            cmd.extend(['-vf', f'fps=10,scale={gif_width}:-1'])
+        elif category == 'video' and not is_audio_out and height is not None:
+            cmd.extend(['-vf', f'scale=-2:{height}'])
+
+        if bitrate and target in ('mp3', 'm4a', 'ogg'):
+            cmd.extend(['-b:a', bitrate])
+
         cmd.append(out)
         return cmd, out
 
     if category == 'image':
         if target == 'ocr_txt':
             tesseract = str(tools['tesseract'] or 'tesseract')
-            return [tesseract, src_str, dst_str], out
+            cmd = [tesseract, src_str, dst_str]
+            if clean_opts['ocr_lang']:
+                cmd.extend(['-l', clean_opts['ocr_lang']])
+            return cmd, out
         magick = str(tools['magick'] or 'magick')
-        return [magick, src_str, out], out
+        quality = IMAGE_QUALITIES[clean_opts['image_quality']]
+        cmd = [magick, src_str]
+        if quality is not None and target in ('jpg', 'webp'):
+            cmd.extend(['-quality', str(quality)])
+        cmd.append(out)
+        return cmd, out
 
     if category == 'document':
         pandoc = str(tools['pandoc'] or 'pandoc')

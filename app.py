@@ -36,12 +36,29 @@ def _parse_upload_name(raw_filename: str) -> tuple[str, str]:
 
 
 def _row_context(job: dict) -> dict:
-    """Attach available target list and smart default target to a job snapshot."""
+    """Attach available target list, smart default target, and preview flag."""
     targets = registry.available_targets(job['category'])
     default_target = job.get('target')
     if not default_target and targets:
         default_target = next((t for t in targets if t != job['ext']), targets[0])
-    return {**job, 'targets': targets, 'default_target': default_target}
+    out_val = job.get('output') or ''
+    can_preview_text = job['status'] == 'done' and out_val.lower().endswith('.txt')
+    return {
+        **job,
+        'targets': targets,
+        'default_target': default_target,
+        'can_preview_text': can_preview_text,
+    }
+
+
+def _extract_options(form) -> dict[str, str]:
+    """Read optional conversion settings from submitted form data."""
+    return {
+        'video_height': form.get('video_height', ''),
+        'audio_bitrate': form.get('audio_bitrate', ''),
+        'image_quality': form.get('image_quality', ''),
+        'ocr_lang': form.get('ocr_lang', ''),
+    }
 
 
 def _capabilities() -> list[dict]:
@@ -128,6 +145,7 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             'index.html',
             max_upload_mb=MAX_UPLOAD_MB,
             capabilities=_capabilities(),
+            tools=registry.get_tools(),
         )
 
     @application.get('/healthz')
@@ -177,7 +195,11 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
 
         src = UPLOAD_DIR / job_id / f"in.{job['ext']}"
         dst_base = OUTPUT_DIR / job_id / 'out'
-        cmd, out = registry.build_cmd(job['category'], src, dst_base, target)
+        try:
+            options = registry.validate_options(_extract_options(request.form))
+        except ValueError:
+            abort(400)
+        cmd, out = registry.build_cmd(job['category'], src, dst_base, target, options=options)
         updated, err = jobs.submit(job_id, cmd, out, target)
         if err == 'not_found' or updated is None:
             abort(404)
@@ -194,6 +216,11 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
         pending_specs: list[tuple[dict, list[str], str, str]] = []
         matched_any = False
 
+        try:
+            options = registry.validate_options(_extract_options(request.form))
+        except ValueError:
+            abort(400)
+
         for jid, target in pairs:
             job = jobs.get_job(jid)
             if job is None:
@@ -205,7 +232,7 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
                 abort(400)
             src = UPLOAD_DIR / jid / f"in.{job['ext']}"
             dst_base = OUTPUT_DIR / jid / 'out'
-            cmd, out = registry.build_cmd(job['category'], src, dst_base, target)
+            cmd, out = registry.build_cmd(job['category'], src, dst_base, target, options=options)
             pending_specs.append((job, cmd, out, target))
 
         if not matched_any:
@@ -223,6 +250,28 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
     def job_status(job_id: str):
         job = jobs.get_job(job_id) or abort(404)
         return render_template('partials/job_row.html', job=_row_context(job))
+
+    @application.get('/jobs/<job_id>/text')
+    def preview_text(job_id: str):
+        job = jobs.get_job(job_id) or abort(404)
+        if job['status'] != 'done' or not job['output']:
+            abort(404)
+        out_path = Path(job['output']).resolve()
+        if (
+            not out_path.is_relative_to(OUTPUT_DIR.resolve())
+            or out_path.suffix.lower() != '.txt'
+            or not out_path.is_file()
+        ):
+            abort(404)
+        raw = out_path.read_text(encoding='utf-8', errors='replace')
+        truncated = len(raw) > 65536
+        text = raw[:65536]
+        return render_template(
+            'partials/text_preview.html',
+            job=job,
+            text=text,
+            truncated=truncated,
+        )
 
     @application.delete('/jobs/<job_id>')
     def remove_job(job_id: str):

@@ -371,7 +371,37 @@ class RoutesTests(unittest.TestCase):
     def test_index_renders_supported_formats_disclosure(self):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
-        self.assertIn('Supported formats on this device', res.get_data(as_text=True))
+        html = res.get_data(as_text=True)
+        self.assertIn('Supported formats on this device', html)
+        self.assertIn('Drop files anywhere to upload', html)
+        self.assertIn('Conversion options', html)
+
+    def test_text_preview_endpoint_and_option_validation(self):
+        if not registry.get_tools()['pdftotext']:
+            self.skipTest('pdftotext not installed')
+
+        res = self.client.post(
+            '/upload',
+            data={'files': (io.BytesIO(_make_sample_pdf('Previewable OCR Text')), 'preview.pdf')},
+            content_type='multipart/form-data',
+        )
+        job_id = self._extract_job_id(res.get_data(as_text=True))
+
+        # Invalid option rejected with 400
+        self.assertEqual(
+            self.client.post(f'/convert/{job_id}', data={'target': 'txt', 'video_height': 'evil'}).status_code,
+            400,
+        )
+
+        self.client.post(f'/convert/{job_id}', data={'target': 'txt'})
+        done_html = self._wait_until_finished(job_id)
+        self.assertIn(f'/jobs/{job_id}/text', done_html)
+
+        prev_res = self.client.get(f'/jobs/{job_id}/text')
+        self.assertEqual(prev_res.status_code, 200)
+        prev_html = prev_res.get_data(as_text=True)
+        self.assertIn('Previewable OCR Text', prev_html)
+        self.assertIn('command="--copy"', prev_html)
 
 
 if __name__ == '__main__':

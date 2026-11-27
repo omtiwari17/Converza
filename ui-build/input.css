@@ -113,6 +113,28 @@
   transform: rotate(180deg);
 }
 
+/* Copy button icon & status feedback */
+.copy-button .copy-icon-done {
+  display: none;
+}
+
+.copy-button[data-copied] .copy-icon-default {
+  display: none;
+}
+
+.copy-button[data-copied] .copy-icon-done {
+  display: inline-block;
+}
+
+.copy-tip {
+  opacity: 0;
+}
+
+.copy-button[data-copied] + .copy-tip,
+.copy-button[data-failed] + .copy-tip {
+  opacity: 1;
+}
+
 /* Theme toggle icon branching without JS-class dependency */
 [data-theme="converza-dark"] .theme-icon-dark,
 [data-theme="converza-light"] .theme-icon-light {
