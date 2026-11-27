@@ -113,6 +113,26 @@ class RoutesTests(unittest.TestCase):
             time.sleep(0.1)
         self.fail(f'Job {job_id} did not finish within {timeout}s')
 
+    def test_index_and_static_assets_load(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn('Converza', html)
+        self.assertIn('data-theme="converza-dark"', html)
+        self.assertIn('Max 500 MB', html)
+        self.assertIn('/static/css/app.css', html)
+        self.assertIn('/static/js/htmx.min.js', html)
+
+        css_res = self.client.get('/static/css/app.css')
+        self.assertEqual(css_res.status_code, 200)
+        self.assertGreater(len(css_res.data), 1000)
+        css_res.close()
+
+        js_res = self.client.get('/static/js/htmx.min.js')
+        self.assertEqual(js_res.status_code, 200)
+        self.assertGreater(len(js_res.data), 1000)
+        js_res.close()
+
     def test_upload_unicode_traversal_and_skipped(self):
         tools = registry.get_tools()
         if not tools['pdftotext']:

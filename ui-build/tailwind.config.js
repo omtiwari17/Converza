@@ -1,0 +1,88 @@
+const daisyui = require('daisyui');
+
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ['../templates/**/*.html'],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: [
+          'Inter',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
+        mono: [
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          'Consolas',
+          'monospace',
+        ],
+      },
+    },
+  },
+  plugins: [daisyui],
+  daisyui: {
+    themes: [
+      {
+        'converza-dark': {
+          primary: '#38bdf8',
+          'primary-content': '#09090b',
+          secondary: '#27272a',
+          'secondary-content': '#f4f4f5',
+          accent: '#38bdf8',
+          'accent-content': '#09090b',
+          neutral: '#18181b',
+          'neutral-content': '#f4f4f5',
+          'base-100': '#18181b',
+          'base-200': '#09090b',
+          'base-300': '#27272a',
+          'base-content': '#f4f4f5',
+          info: '#38bdf8',
+          success: '#34d399',
+          warning: '#fbbf24',
+          error: '#f87171',
+          '--rounded-box': '0.75rem',
+          '--rounded-btn': '0.5rem',
+          '--rounded-badge': '0.375rem',
+          '--animation-btn': '0s',
+          '--animation-input': '0s',
+          '--btn-focus-scale': '1',
+        },
+      },
+      {
+        'converza-light': {
+          primary: '#0284c7',
+          'primary-content': '#ffffff',
+          secondary: '#e4e4e7',
+          'secondary-content': '#18181b',
+          accent: '#0284c7',
+          'accent-content': '#ffffff',
+          neutral: '#f4f4f5',
+          'neutral-content': '#18181b',
+          'base-100': '#ffffff',
+          'base-200': '#fafafa',
+          'base-300': '#e4e4e7',
+          'base-content': '#18181b',
+          info: '#0284c7',
+          success: '#059669',
+          warning: '#d97706',
+          error: '#dc2626',
+          '--rounded-box': '0.75rem',
+          '--rounded-btn': '0.5rem',
+          '--rounded-badge': '0.375rem',
+          '--animation-btn': '0s',
+          '--animation-input': '0s',
+          '--btn-focus-scale': '1',
+        },
+      },
+    ],
+    darkTheme: 'converza-dark',
+    logs: false,
+  },
+};

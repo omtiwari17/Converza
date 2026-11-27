@@ -54,7 +54,7 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
 
     @application.get('/')
     def index():
-        return render_template('index.html')
+        return render_template('index.html', max_upload_mb=MAX_UPLOAD_MB)
 
     @application.get('/healthz')
     def healthz():
