@@ -18,14 +18,14 @@ Converza is a lightweight, private, self-hosted web file converter (video, audio
 - CLI converters: `ffmpeg`, `magick`/`convert`, `pandoc`, `pdftoppm`/`pdftotext` (Poppler), `tesseract`
 
 ## File Structure
-- `app.py` — Flask app factory (`create_app()`) and routes (`/`, `/healthz`, `/upload`, `/convert/<id>`, `/convert-all`, `/jobs/<id>`, `/download/<id>`, `/zip`, `413` error handler, optional auth gate, security headers)
+- `app.py` — Flask app factory (`create_app()`) and routes (`/`, `/healthz`, `/upload`, `/convert/<id>`, `/convert-all`, `/jobs/<id>` GET/DELETE, `/download/<id>`, `/zip`, `413` error handler, optional auth gate, security headers)
 - `config.py` — Constants and `ensure_dirs()`
 - `registry.py` — Categories, targets, labels, cached tool/policy discovery (`get_tools`, `available_targets`), `build_cmd()`, `collect_multipage_outputs()`
 - `jobs.py` — `is_valid_job_id()`, `create_job()`, `get_job()`, `delete_job()`, `submit()`, `run_job()`, `_finalize_output()`, `build_zip_archive()`, `cleanup_expired()`, `start_cleanup_thread()`, `clear_stale_dirs()`
 - `templates/base.html` — Layout, `converza-dark`/`converza-light` theme toggle (`localStorage` + `<meta name="color-scheme">`), Known Limits footer
-- `templates/index.html` — Dropzone card, drag-and-drop JS, `#upload-error` (with 413 handling), bulk bar (`>= 2` rows) wired to `/convert-all` and `/zip`, `#files` list, polite live region
-- `templates/partials/file_rows.html` — Uploaded rows + skipped-file warning alert + empty notice
-- `templates/partials/job_row.html` — Job card partial (`uploaded`, `queued`, `running`, `done`, `error` + Retry, OOB swap support)
+- `templates/index.html` — Dropzone card, collapsed supported-formats `<details>` disclosure, drag-and-drop JS, `#upload-error`, bulk bar (`>= 2` rows) with Convert all / Download ZIP / Clear done, `#files` list, polite live region
+- `templates/partials/file_rows.html` — Uploaded rows + soft-tinted skipped-file warning alert + empty notice
+- `templates/partials/job_row.html` — Job card partial (`uploaded`, `queued`, `running`, `done`, `error` + Retry, smart non-same default target, `→ Target` badge, Remove button, OOB swap support)
 - `templates/partials/convert_all.html` — Bulk response list of `job_row.html` partials
 - `static/css/app.css` — Compiled minified Tailwind 3 + DaisyUI 4 CSS
 - `static/js/htmx.min.js` — Vendored HTMX 2.0.4
@@ -41,7 +41,8 @@ Converza is a lightweight, private, self-hosted web file converter (video, audio
 - **Phase 3 (Jobs & routes)**: Implemented `jobs.py`, `/upload`, `/convert/<job_id>`, `/jobs/<job_id>`, `/download/<job_id>`, and verified via `unittest` + live `waitress-serve` + `curl.exe`.
 - **Phase 4 (UI)**: Built `ui-build/` Tailwind 3 + DaisyUI 4 CSS (`static/css/app.css`), vendored `htmx.min.js` (`2.0.4`), and implemented `base.html`, `index.html`, and styled partials.
 - **Phase 5 (Bulk & polish)**: Added `POST /convert-all`, `GET /zip?ids=...` (disk-backed streaming ZIP with cleanup), `413` error handler, Retry recovery, and 5-mixed-file tests.
-- **Phase 6 (Hardening)**: Added strict 32-hex `is_valid_job_id()` + `OUTPUT_DIR` `is_relative_to()` path containment checks, `delete_job()` cleanup on failed upload write, `X-Content-Type-Options: nosniff` and `X-Frame-Options: SAMEORIGIN` headers, optional `CONVERZA_PASSWORD` HTTP Basic gate (leaving `/healthz` open), and `tests/test_hardening.py`. Verified **28 / 28** tests passing.
+- **Phase 6 (Hardening)**: Added strict 32-hex `is_valid_job_id()` + `OUTPUT_DIR` `is_relative_to()` path containment checks, `delete_job()` cleanup on failed upload write, `X-Content-Type-Options: nosniff` and `X-Frame-Options: SAMEORIGIN` headers, optional `CONVERZA_PASSWORD` HTTP Basic gate (leaving `/healthz` open), and `tests/test_hardening.py`.
+- **UI/UX Polish Pass**: Collapsed idle `.htmx-indicator` (`display: none`), fixed `border-base-content/15` badge class, pre-selected first non-same target (`default_target`), displayed `→ Target` on active/done/error rows, added `DELETE /jobs/<id>` row removal + `Clear done` bulk button, added `overflow-wrap: anywhere` for long filenames, soft-tinted alert surfaces, and a collapsed `<details>` disclosure showing active device formats (`31/31` tests passing).
 
 ## Current Work
 - Phase 6 complete; ready for Phase 7 (Termux deployment & 30-minute phone stability test).

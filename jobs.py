@@ -80,14 +80,23 @@ def get_job(job_id: str) -> dict | None:
         return dict(job) if job is not None else None
 
 
-def delete_job(job_id: str) -> None:
-    """Remove a job record and its upload/output directories (e.g. failed upload save)."""
+def delete_job(job_id: str, *, allow_active: bool = False) -> tuple[bool, str | None]:
+    """Remove a job record and its upload/output directories.
+
+    Returns (True, None) when removed, or (False, reason) when missing or active.
+    """
     if not is_valid_job_id(job_id):
-        return
+        return False, 'not_found'
     with LOCK:
-        JOBS.pop(job_id, None)
+        job = JOBS.get(job_id)
+        if job is None:
+            return False, 'not_found'
+        if not allow_active and job['status'] in ('queued', 'running'):
+            return False, 'active'
+        del JOBS[job_id]
     shutil.rmtree(UPLOAD_DIR / job_id, ignore_errors=True)
     shutil.rmtree(OUTPUT_DIR / job_id, ignore_errors=True)
+    return True, None
 
 
 def _clear_job_outputs(job_id: str) -> None:

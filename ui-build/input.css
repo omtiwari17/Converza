@@ -42,12 +42,12 @@
 
 .converza-bg {
   background-image:
-    radial-gradient(60% 45% at 50% 0%, rgba(56, 189, 248, 0.08), transparent 70%);
+    radial-gradient(65% 45% at 50% 0%, rgba(56, 189, 248, 0.08), transparent 72%);
 }
 
 [data-theme="converza-light"] .converza-bg {
   background-image:
-    radial-gradient(60% 45% at 50% 0%, rgba(2, 132, 199, 0.06), transparent 70%);
+    radial-gradient(65% 45% at 50% 0%, rgba(2, 132, 199, 0.06), transparent 72%);
 }
 
 .converza-card {
@@ -58,6 +58,59 @@
 [data-theme="converza-light"] .converza-card {
   border: 1px solid rgba(228, 228, 231, 0.9);
   box-shadow: 0 1px 2px 0 rgba(24, 24, 27, 0.04);
+}
+
+/* Prevent long unbroken filenames from widening mobile cards */
+.converza-filename {
+  overflow-wrap: anywhere;
+}
+
+/* Collapse HTMX indicator completely when idle so it adds zero empty height */
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-indicator.htmx-request {
+  display: flex;
+}
+
+/* Soft-tinted alert surfaces for dark and light themes */
+.converza-alert-warn {
+  background-color: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  color: #fde68a;
+}
+
+[data-theme="converza-light"] .converza-alert-warn {
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #92400e;
+}
+
+.converza-alert-error {
+  background-color: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  color: #fecaca;
+}
+
+[data-theme="converza-light"] .converza-alert-error {
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  color: #991b1b;
+}
+
+/* Native <details> disclosure chevron */
+.converza-details > summary {
+  list-style: none;
+}
+
+.converza-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.converza-details[open] .converza-chevron {
+  transform: rotate(180deg);
 }
 
 /* Theme toggle icon branching without JS-class dependency */

@@ -341,6 +341,38 @@ class RoutesTests(unittest.TestCase):
         self.assertEqual(res.status_code, 413)
         self.assertIn('size limit', res.get_data(as_text=True))
 
+    def test_delete_job_removes_files_and_protects_running(self):
+        job, in_path = jobs.create_job('remove.pdf', 'pdf', 'pdf', size=10)
+        in_path.write_bytes(b'%PDF-1.4')
+        del_res = self.client.delete(f"/jobs/{job['id']}")
+        self.assertEqual(del_res.status_code, 200)
+        self.assertIsNone(jobs.get_job(job['id']))
+        self.assertFalse((config.UPLOAD_DIR / job['id']).exists())
+        self.assertEqual(self.client.delete(f"/jobs/{job['id']}").status_code, 404)
+
+        active, _ = jobs.create_job('busy.pdf', 'pdf', 'pdf', size=10)
+        with jobs.LOCK:
+            jobs.JOBS[active['id']]['status'] = 'running'
+        self.assertEqual(self.client.delete(f"/jobs/{active['id']}").status_code, 409)
+
+    def test_smart_default_target_skips_same_extension(self):
+        fake_tools = {k: 'ok' for k in registry.get_tools()}
+        fake_tools['magick_pdf'] = True
+        with mock.patch('registry.get_tools', return_value=fake_tools):
+            res = self.client.post(
+                '/upload',
+                data={'files': (io.BytesIO(_make_png(4, 4)), 'photo.png')},
+                content_type='multipart/form-data',
+            )
+            self.assertEqual(res.status_code, 200)
+            html = res.get_data(as_text=True)
+            self.assertIn('<option value="jpg" selected>', html)
+
+    def test_index_renders_supported_formats_disclosure(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('Supported formats on this device', res.get_data(as_text=True))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

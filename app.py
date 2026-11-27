@@ -36,9 +36,26 @@ def _parse_upload_name(raw_filename: str) -> tuple[str, str]:
 
 
 def _row_context(job: dict) -> dict:
-    """Attach available target list to a job snapshot for partial rendering."""
+    """Attach available target list and smart default target to a job snapshot."""
     targets = registry.available_targets(job['category'])
-    return {**job, 'targets': targets}
+    default_target = job.get('target')
+    if not default_target and targets:
+        default_target = next((t for t in targets if t != job['ext']), targets[0])
+    return {**job, 'targets': targets, 'default_target': default_target}
+
+
+def _capabilities() -> list[dict]:
+    """Return active categories, accepted input extensions, and available targets."""
+    caps: list[dict] = []
+    for cat, exts in registry.CATEGORIES.items():
+        targets = registry.available_targets(cat)
+        if targets:
+            caps.append({
+                'category': cat,
+                'inputs': sorted(exts),
+                'targets': [registry.target_label(t) for t in targets],
+            })
+    return caps
 
 
 def _parse_bulk_targets(form) -> list[tuple[str, str]]:
@@ -107,7 +124,11 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
 
     @application.get('/')
     def index():
-        return render_template('index.html', max_upload_mb=MAX_UPLOAD_MB)
+        return render_template(
+            'index.html',
+            max_upload_mb=MAX_UPLOAD_MB,
+            capabilities=_capabilities(),
+        )
 
     @application.get('/healthz')
     def healthz():
@@ -133,7 +154,7 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             try:
                 storage.save(in_path)
             except OSError:
-                jobs.delete_job(job['id'])
+                jobs.delete_job(job['id'], allow_active=True)
                 abort(500)
             size = in_path.stat().st_size if in_path.is_file() else 0
             jobs.set_size(job['id'], size)
@@ -202,6 +223,13 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
     def job_status(job_id: str):
         job = jobs.get_job(job_id) or abort(404)
         return render_template('partials/job_row.html', job=_row_context(job))
+
+    @application.delete('/jobs/<job_id>')
+    def remove_job(job_id: str):
+        deleted, reason = jobs.delete_job(job_id)
+        if not deleted:
+            abort(409 if reason == 'active' else 404)
+        return '', 200
 
     @application.get('/download/<job_id>')
     def download(job_id: str):
