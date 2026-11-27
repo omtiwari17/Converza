@@ -217,10 +217,56 @@ class RoutesTests(unittest.TestCase):
         out_dir = config.OUTPUT_DIR / job['id']
         (out_dir / 'out-1.png').write_bytes(_make_png(4, 4))
         (out_dir / 'out-2.png').write_bytes(_make_png(4, 4))
-        final_out = jobs._finalize_output(job['id'], 'pdf', 'png', out_dir / 'out.png')
+        final_out, page_names = jobs._finalize_output(job['id'], 'pdf', 'png', out_dir / 'out.png')
         self.assertEqual(final_out.name, 'out.zip')
+        self.assertEqual(page_names, ['out-1.png', 'out-2.png'])
         with zipfile.ZipFile(final_out) as zf:
             self.assertEqual(zf.namelist(), ['out-1.png', 'out-2.png'])
+
+        with jobs.LOCK:
+            jobs.JOBS[job['id']].update(
+                status='done',
+                target='png',
+                output=str(final_out),
+                pages=page_names,
+            )
+
+        prev_res = self.client.get(f"/jobs/{job['id']}/preview")
+        self.assertEqual(prev_res.status_code, 200)
+        prev_html = prev_res.get_data(as_text=True)
+        self.assertIn('2 pages', prev_html)
+        self.assertIn('Page 1', prev_html)
+        self.assertIn('Page 2', prev_html)
+
+        p1 = self.client.get(f"/download/{job['id']}/page/1")
+        self.assertEqual(p1.status_code, 200)
+        self.assertIn('slides_page_1.png', p1.headers.get('Content-Disposition', ''))
+        p1.close()
+
+        self.assertEqual(self.client.get(f"/download/{job['id']}/page/99").status_code, 404)
+
+    def test_media_preview_for_image_audio_video_html(self):
+        cases = [
+            ('photo.png', 'image', 'webp', 'out.webp', b'WEBP', 'Preview', '<img'),
+            ('song.wav', 'audio', 'mp3', 'out.mp3', b'ID3', 'Listen', '<audio'),
+            ('clip.mp4', 'video', 'mp4', 'out.mp4', b'ftyp', 'Play', '<video'),
+            ('notes.md', 'document', 'html', 'out.html', b'<h1>Hi</h1>', 'Preview', '<iframe sandbox=""'),
+        ]
+        for fname, cat, tgt, out_name, payload, btn_label, tag in cases:
+            job, _ = jobs.create_job(fname, cat, fname.rsplit('.', 1)[1], size=10)
+            out_file = config.OUTPUT_DIR / job['id'] / out_name
+            out_file.write_bytes(payload)
+            with jobs.LOCK:
+                jobs.JOBS[job['id']].update(status='done', target=tgt, output=str(out_file))
+
+            row_html = self.client.get(f"/jobs/{job['id']}").get_data(as_text=True)
+            self.assertIn(btn_label, row_html)
+            prev_html = self.client.get(f"/jobs/{job['id']}/preview").get_data(as_text=True)
+            self.assertIn(tag, prev_html)
+            media = self.client.get(f"/jobs/{job['id']}/media")
+            self.assertEqual(media.status_code, 200)
+            self.assertEqual(media.data, payload)
+            media.close()
 
     def test_cleanup_expired_deletes_old_jobs_and_files(self):
         job, in_path = jobs.create_job('old.png', 'image', 'png', size=10)

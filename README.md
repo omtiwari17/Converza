@@ -20,7 +20,7 @@ Missing tools and restricted ImageMagick PDF policies are detected at startup an
 - Smart default target selection (automatically avoids defaulting to the same extension)
 - Collapsed **Conversion options** drawer for video max height (`1080p`/`720p`/`480p`), audio bitrate (`320k`–`96k`), JPG/WebP quality (`95`/`85`/`70`), and installed Tesseract OCR languages
 - Sequential background worker (`ThreadPoolExecutor(max_workers=1)`) to protect phone CPU/thermals
-- Live 1-second HTMX polling, inline **Preview & Copy** for `.txt`/OCR outputs, single-file download, bulk **Convert all**, **Download all (ZIP)**, **Clear done**, **Clear all**, and **Retry** on errors
+- Live 1-second HTMX polling, inline previews across formats (**Pages (N)** with per-page download for multi-page PDFs, **Preview** for images/HTML/text+Copy, **Listen** for audio, **Play** for video), single-file download, bulk **Convert all**, **Download all (ZIP)**, **Clear done**, **Clear all**, **Cancel**, and **Retry** on errors
 - Dark and light themes (`data-theme` saved in `localStorage`) with offline vendored `htmx.min.js` and pre-built `static/css/app.css`
 - Auto-cleanup after 1 hour (`JOB_TTL_SECONDS = 3600`) and stale directory sweep on startup
 

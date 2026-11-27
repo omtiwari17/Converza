@@ -109,16 +109,42 @@
     </div>
     {% elif job.status == 'done' %}
     <div class="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-      {% if job.can_preview_text %}
+      {% if job.preview_kind == 'text' %}
       <button type="button"
               hx-get="/jobs/{{ job.id }}/text"
               hx-target="#preview-{{ job.id }}"
               hx-swap="innerHTML"
-              class="btn btn-outline btn-sm min-h-[44px] flex-1 gap-1.5 px-3 sm:flex-none">
+              class="btn btn-outline btn-sm min-h-[44px] flex-1 gap-1.5 px-3 sm:flex-none converza-interactive">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
         </svg>
         <span>Preview</span>
+      </button>
+      {% elif job.preview_kind == 'pages' %}
+      <button type="button"
+              hx-get="/jobs/{{ job.id }}/preview"
+              hx-target="#preview-{{ job.id }}"
+              hx-swap="innerHTML"
+              class="btn btn-outline btn-sm min-h-[44px] flex-1 gap-1.5 px-3 sm:flex-none converza-interactive">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>
+        </svg>
+        <span>Pages ({{ job.page_count }})</span>
+      </button>
+      {% elif job.preview_kind in ('image', 'audio', 'video', 'html') %}
+      <button type="button"
+              hx-get="/jobs/{{ job.id }}/preview"
+              hx-target="#preview-{{ job.id }}"
+              hx-swap="innerHTML"
+              class="btn btn-outline btn-sm min-h-[44px] flex-1 gap-1.5 px-3 sm:flex-none converza-interactive">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          {% if job.preview_kind in ('audio', 'video') %}
+          <polygon points="6 3 20 12 6 21 6 3"/>
+          {% else %}
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+          {% endif %}
+        </svg>
+        <span>{% if job.preview_kind == 'audio' %}Listen{% elif job.preview_kind == 'video' %}Play{% else %}Preview{% endif %}</span>
       </button>
       {% endif %}
       <a href="/download/{{ job.id }}"
@@ -129,7 +155,7 @@
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" x2="12" y1="15" y2="3"/>
         </svg>
-        <span>Download</span>
+        <span>{% if job.preview_kind == 'pages' %}Download ZIP{% else %}Download{% endif %}</span>
       </a>
       <button type="button"
               data-remove-job
@@ -146,7 +172,7 @@
     {% endif %}
   </div>
 
-  {% if job.status == 'done' and job.can_preview_text %}
+  {% if job.status == 'done' and job.preview_kind %}
   <div id="preview-{{ job.id }}"></div>
   {% endif %}
 

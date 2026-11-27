@@ -36,18 +36,39 @@ def _parse_upload_name(raw_filename: str) -> tuple[str, str]:
 
 
 def _row_context(job: dict) -> dict:
-    """Attach available target list, smart default target, and preview flag."""
+    """Attach available target list, smart default target, and preview flags."""
     targets = registry.available_targets(job['category'])
     default_target = job.get('target')
     if not default_target and targets:
         default_target = next((t for t in targets if t != job['ext']), targets[0])
+
     out_val = job.get('output') or ''
-    can_preview_text = job['status'] == 'done' and out_val.lower().endswith('.txt')
+    ext = Path(out_val).suffix.lower().lstrip('.') if out_val else ''
+    pages = job.get('pages') or []
+    is_done = job['status'] == 'done'
+
+    preview_kind = None
+    if is_done:
+        if pages:
+            preview_kind = 'pages'
+        elif ext in ('txt', 'md'):
+            preview_kind = 'text'
+        elif ext in ('png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'):
+            preview_kind = 'image'
+        elif ext in ('mp3', 'wav', 'flac', 'ogg', 'm4a'):
+            preview_kind = 'audio'
+        elif ext in ('mp4', 'webm'):
+            preview_kind = 'video'
+        elif ext == 'html':
+            preview_kind = 'html'
+
     return {
         **job,
         'targets': targets,
         'default_target': default_target,
-        'can_preview_text': can_preview_text,
+        'can_preview_text': preview_kind == 'text',
+        'preview_kind': preview_kind,
+        'page_count': len(pages),
     }
 
 
@@ -259,7 +280,7 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
         out_path = Path(job['output']).resolve()
         if (
             not out_path.is_relative_to(OUTPUT_DIR.resolve())
-            or out_path.suffix.lower() != '.txt'
+            or out_path.suffix.lower() not in ('.txt', '.md')
             or not out_path.is_file()
         ):
             abort(404)
@@ -271,6 +292,43 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             job=job,
             text=text,
             truncated=truncated,
+        )
+
+    @application.get('/jobs/<job_id>/preview')
+    def preview_partial(job_id: str):
+        job = jobs.get_job(job_id) or abort(404)
+        if job['status'] != 'done':
+            abort(404)
+        ctx = _row_context(job)
+        if ctx['preview_kind'] == 'pages':
+            return render_template('partials/pages_preview.html', job=ctx)
+        if ctx['preview_kind'] in ('image', 'audio', 'video', 'html'):
+            return render_template('partials/media_preview.html', job=ctx)
+        abort(404)
+
+    @application.get('/jobs/<job_id>/media')
+    def serve_media(job_id: str):
+        job = jobs.get_job(job_id) or abort(404)
+        if job['status'] != 'done' or not job['output']:
+            abort(404)
+        out_path = Path(job['output']).resolve()
+        if not out_path.is_relative_to(OUTPUT_DIR.resolve()) or not out_path.is_file():
+            abort(404)
+        return send_file(out_path, conditional=True)
+
+    @application.get('/download/<job_id>/page/<int:page_num>')
+    def download_page(job_id: str, page_num: int):
+        job = jobs.get_job(job_id) or abort(404)
+        page_path = jobs.get_job_page_path(job_id, page_num)
+        if page_path is None:
+            abort(404)
+        if request.args.get('inline') == '1':
+            return send_file(page_path, conditional=True)
+        stem = secure_filename(Path(job['name']).stem) or 'page'
+        return send_file(
+            page_path,
+            as_attachment=True,
+            download_name=f'{stem}_page_{page_num}{page_path.suffix}',
         )
 
     @application.delete('/jobs/<job_id>')

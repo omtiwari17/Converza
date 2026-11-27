@@ -58,6 +58,7 @@ def create_job(orig_name: str, category: str, ext: str, size: int = 0) -> tuple[
         'status': 'uploaded',
         'error': None,
         'output': None,
+        'pages': [],
         'created': time.time(),
     }
     with LOCK:
@@ -109,20 +110,20 @@ def _clear_job_outputs(job_id: str) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
 
-def _finalize_output(job_id: str, category: str, target: str, out_path: str | Path) -> Path:
-    """Resolve single or multi-page outputs into the final deliverable path."""
+def _finalize_output(job_id: str, category: str, target: str, out_path: str | Path) -> tuple[Path, list[str]]:
+    """Resolve single or multi-page outputs into (final_deliverable_path, page_filenames)."""
     if registry.is_multipage_target(category, target):
         dst_base = OUTPUT_DIR / job_id / 'out'
         pages = registry.collect_multipage_outputs(dst_base, target)
         if not pages:
             raise RuntimeError('No pages were generated from PDF')
         if len(pages) == 1:
-            return pages[0]
+            return pages[0], []
         zip_path = OUTPUT_DIR / job_id / 'out.zip'
         with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
             for page in pages:
                 zf.write(page, arcname=page.name)
-        return zip_path
+        return zip_path, [page.name for page in pages]
 
     final_path = Path(out_path)
     if not final_path.is_file() and final_path.name.endswith('_stage-html.html'):
@@ -131,7 +132,21 @@ def _finalize_output(job_id: str, category: str, target: str, out_path: str | Pa
             final_path = alt_path
     if not final_path.is_file():
         raise RuntimeError('Converter finished without creating an output file')
-    return final_path
+    return final_path, []
+
+
+def get_job_page_path(job_id: str, page_num: int) -> Path | None:
+    """Return the resolved Path for a 1-based multi-page output, or None if invalid."""
+    job = get_job(job_id)
+    if job is None or job['status'] != 'done':
+        return None
+    pages = job.get('pages') or []
+    if page_num < 1 or page_num > len(pages):
+        return None
+    page_path = (OUTPUT_DIR / job_id / pages[page_num - 1]).resolve()
+    if not page_path.is_relative_to(OUTPUT_DIR.resolve()) or not page_path.is_file():
+        return None
+    return page_path
 
 
 def _normalize_stage_html(cmd: list[str]) -> None:
@@ -190,10 +205,15 @@ def run_job(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: st
                 return
 
         _CANCELLED_JOBS.discard(job_id)
-        final_out = _finalize_output(job_id, category, target, out_path)
+        final_out, page_names = _finalize_output(job_id, category, target, out_path)
         with LOCK:
             if job_id in JOBS:
-                JOBS[job_id].update(status='done', output=str(final_out), error=None)
+                JOBS[job_id].update(
+                    status='done',
+                    output=str(final_out),
+                    pages=page_names,
+                    error=None,
+                )
     except subprocess.TimeoutExpired:
         if proc is not None:
             proc.kill()
@@ -260,7 +280,7 @@ def submit(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: str
         category = job['category']
         _CANCELLED_JOBS.discard(job_id)
         _clear_job_outputs(job_id)
-        job.update(target=target, status='queued', error=None, output=None)
+        job.update(target=target, status='queued', error=None, output=None, pages=[])
         snapshot = dict(job)
 
     POOL.submit(run_job, job_id, cmd_or_steps, out_path, category, target)
