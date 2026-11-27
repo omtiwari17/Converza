@@ -18,6 +18,12 @@
         <span>Copy</span>
       </button>
       <span class="copy-tip font-mono text-[11px] text-primary" role="status"></span>
+      <button type="button"
+              data-close-preview="preview-{{ job.id }}"
+              aria-label="Close text preview for {{ job.name }}"
+              class="btn btn-ghost btn-xs min-h-[32px] rounded-md px-2 text-xs opacity-70 hover:opacity-100">
+        Close
+      </button>
     </span>
   </div>
   <pre tabindex="0"

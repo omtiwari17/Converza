@@ -263,6 +263,8 @@ class RoutesTests(unittest.TestCase):
             self.assertIn(btn_label, row_html)
             prev_html = self.client.get(f"/jobs/{job['id']}/preview").get_data(as_text=True)
             self.assertIn(tag, prev_html)
+            if cat in ('image', 'document'):
+                self.assertIn('data-enlarge-src', prev_html)
             media = self.client.get(f"/jobs/{job['id']}/media")
             self.assertEqual(media.status_code, 200)
             self.assertEqual(media.data, payload)
@@ -435,6 +437,7 @@ class RoutesTests(unittest.TestCase):
         self.assertIn('Supported formats on this device', html)
         self.assertIn('Drop files anywhere to upload', html)
         self.assertIn('Conversion options', html)
+        self.assertIn('id="preview-modal"', html)
 
     def test_text_preview_endpoint_and_option_validation(self):
         if not registry.get_tools()['pdftotext']:

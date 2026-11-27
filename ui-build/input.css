@@ -157,6 +157,12 @@
   transform: rotate(180deg);
 }
 
+/* Native <dialog> lightbox backdrop */
+dialog#preview-modal::backdrop {
+  background: rgba(9, 9, 11, 0.84);
+  backdrop-filter: blur(6px);
+}
+
 /* Copy button icon & status feedback */
 .copy-button .copy-icon-done {
   display: none;

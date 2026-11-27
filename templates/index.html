@@ -249,6 +249,27 @@
     </section>
   </aside>
 </div>
+
+<dialog id="preview-modal"
+        closedby="any"
+        aria-labelledby="preview-modal-title"
+        class="m-auto w-[95vw] max-w-5xl rounded-2xl border border-base-content/15 bg-base-100 p-0 text-base-content shadow-2xl">
+  <div class="flex items-center justify-between gap-3 border-b border-base-content/10 px-4 py-3">
+    <h2 id="preview-modal-title" class="truncate text-sm font-semibold">Preview</h2>
+    <div class="flex shrink-0 items-center gap-2">
+      <a id="preview-modal-download"
+         href="#"
+         download
+         class="btn btn-primary btn-xs min-h-[36px] gap-1.5 px-3 text-xs font-medium">
+        Download
+      </a>
+      <form method="dialog">
+        <button type="submit" class="btn btn-ghost btn-xs min-h-[36px] px-3 text-xs font-medium">Close</button>
+      </form>
+    </div>
+  </div>
+  <div id="preview-modal-body" class="flex max-h-[82dvh] items-center justify-center overflow-auto bg-base-200/70 p-3 sm:p-4"></div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -600,6 +621,58 @@
         if (!btn) return;
         var target = document.getElementById(btn.getAttribute('commandfor'));
         if (target) copyTargetText(btn, target);
+      });
+    }
+
+    // Lightbox enlarge modal & inline preview close handler
+    var modal = document.getElementById('preview-modal');
+    var modalTitle = document.getElementById('preview-modal-title');
+    var modalBody = document.getElementById('preview-modal-body');
+    var modalDownload = document.getElementById('preview-modal-download');
+
+    document.addEventListener('click', function (ev) {
+      var closeBtn = ev.target && ev.target.closest && ev.target.closest('[data-close-preview]');
+      if (closeBtn) {
+        var box = document.getElementById(closeBtn.getAttribute('data-close-preview'));
+        if (box) box.innerHTML = '';
+        return;
+      }
+
+      var trigger = ev.target && ev.target.closest && ev.target.closest('[data-enlarge-src]');
+      if (!trigger || !modal || !modalBody) return;
+
+      var src = trigger.getAttribute('data-enlarge-src');
+      var kind = trigger.getAttribute('data-enlarge-kind');
+      var title = trigger.getAttribute('data-enlarge-title') || 'Preview';
+      var dl = trigger.getAttribute('data-enlarge-download') || '#';
+
+      if (modalTitle) modalTitle.textContent = title;
+      if (modalDownload) modalDownload.href = dl;
+      modalBody.innerHTML = '';
+
+      if (kind === 'html') {
+        var frame = document.createElement('iframe');
+        frame.setAttribute('sandbox', '');
+        frame.src = src;
+        frame.title = title;
+        frame.className = 'h-[76dvh] w-full rounded-lg border border-base-content/10 bg-white';
+        modalBody.appendChild(frame);
+      } else {
+        var img = document.createElement('img');
+        img.src = src;
+        img.alt = title;
+        img.className = 'max-h-[78dvh] w-auto max-w-full rounded-lg object-contain';
+        modalBody.appendChild(img);
+      }
+
+      if (typeof modal.showModal === 'function') {
+        modal.showModal();
+      }
+    });
+
+    if (modal) {
+      modal.addEventListener('close', function () {
+        if (modalBody) modalBody.innerHTML = '';
       });
     }
 
