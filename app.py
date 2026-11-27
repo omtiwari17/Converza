@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+import os
 import re
 from pathlib import Path
 
@@ -74,6 +76,26 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
     application.jinja_env.filters['format_size'] = _format_size
     application.jinja_env.globals['target_label'] = registry.target_label
 
+    @application.before_request
+    def optional_password_gate():
+        password = os.environ.get('CONVERZA_PASSWORD', '')
+        if not password or request.path == '/healthz':
+            return None
+        auth = request.authorization
+        if not auth or not hmac.compare_digest(auth.password or '', password):
+            return Response(
+                'Authentication required',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Converza"'},
+            )
+        return None
+
+    @application.after_request
+    def security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+        return response
+
     @application.errorhandler(413)
     def file_too_large(_err):
         html = (
@@ -108,7 +130,11 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
                 continue
 
             job, in_path = jobs.create_job(display_name, category, ext)
-            storage.save(in_path)
+            try:
+                storage.save(in_path)
+            except OSError:
+                jobs.delete_job(job['id'])
+                abort(500)
             size = in_path.stat().st_size if in_path.is_file() else 0
             jobs.set_size(job['id'], size)
             job['size'] = size
@@ -145,11 +171,13 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
 
         queued_rows: list[dict] = []
         pending_specs: list[tuple[dict, list[str], str, str]] = []
+        matched_any = False
 
         for jid, target in pairs:
             job = jobs.get_job(jid)
             if job is None:
                 continue
+            matched_any = True
             if job['status'] not in ('uploaded', 'error'):
                 continue
             if not registry.is_target_available(job['category'], target):
@@ -158,6 +186,9 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             dst_base = OUTPUT_DIR / jid / 'out'
             cmd, out = registry.build_cmd(job['category'], src, dst_base, target)
             pending_specs.append((job, cmd, out, target))
+
+        if not matched_any:
+            abort(404)
 
         for job, cmd, out, target in pending_specs:
             updated, err = jobs.submit(job['id'], cmd, out, target)
@@ -177,8 +208,8 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
         job = jobs.get_job(job_id) or abort(404)
         if job['status'] != 'done' or not job['output']:
             abort(404)
-        out_path = Path(job['output'])
-        if not out_path.is_file():
+        out_path = Path(job['output']).resolve()
+        if not out_path.is_relative_to(OUTPUT_DIR.resolve()) or not out_path.is_file():
             abort(404)
         stem = secure_filename(Path(job['name']).stem) or 'converted'
         return send_file(

@@ -23,6 +23,11 @@ _CLEANUP_STARTED = False
 _CLEANUP_LOCK = threading.Lock()
 
 
+def is_valid_job_id(job_id: str) -> bool:
+    """Return True if job_id is a well-formed 32-char lowercase hex UUID."""
+    return len(job_id) == 32 and all(ch in '0123456789abcdef' for ch in job_id)
+
+
 def clear_stale_dirs() -> None:
     """Remove leftover upload/output directories from prior runs."""
     for root in (UPLOAD_DIR, OUTPUT_DIR):
@@ -68,9 +73,21 @@ def set_size(job_id: str, size: int) -> None:
 
 def get_job(job_id: str) -> dict | None:
     """Return a thread-safe copy of a job record, or None if not found."""
+    if not is_valid_job_id(job_id):
+        return None
     with LOCK:
         job = JOBS.get(job_id)
         return dict(job) if job is not None else None
+
+
+def delete_job(job_id: str) -> None:
+    """Remove a job record and its upload/output directories (e.g. failed upload save)."""
+    if not is_valid_job_id(job_id):
+        return
+    with LOCK:
+        JOBS.pop(job_id, None)
+    shutil.rmtree(UPLOAD_DIR / job_id, ignore_errors=True)
+    shutil.rmtree(OUTPUT_DIR / job_id, ignore_errors=True)
 
 
 def _clear_job_outputs(job_id: str) -> None:
@@ -196,7 +213,9 @@ def build_zip_archive(job_ids: list[str]) -> Path:
         job = get_job(jid)
         if job is None or job['status'] != 'done' or not job['output']:
             raise LookupError(jid)
-        out_path = Path(job['output'])
+        out_path = Path(job['output']).resolve()
+        if not out_path.is_relative_to(OUTPUT_DIR.resolve()):
+            raise LookupError(jid)
         if not out_path.is_file():
             raise FileNotFoundError(jid)
 
