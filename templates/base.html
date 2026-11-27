@@ -17,6 +17,7 @@
     })();
   </script>
   <title>{% block title %}Converza — Local File Converter{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <script src="{{ url_for('static', filename='js/htmx.min.js') }}" defer></script>
 </head>
@@ -26,14 +27,12 @@
     <header class="border-b border-base-content/10 bg-base-100/60 backdrop-blur-md">
       <div class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
         <div class="flex min-w-0 items-center gap-3">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl converza-card text-primary" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 3h5v5"/>
-              <path d="M8 3H3v5"/>
-              <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
-              <path d="m15 9 6-6"/>
-            </svg>
-          </div>
+          <img src="{{ url_for('static', filename='img/logo.svg') }}"
+               alt=""
+               width="40"
+               height="40"
+               class="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+               aria-hidden="true">
           <div class="min-w-0">
             <div class="flex items-center gap-2.5">
               <span class="text-lg font-semibold tracking-tight">Converza</span>

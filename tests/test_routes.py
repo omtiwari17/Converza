@@ -122,6 +122,7 @@ class RoutesTests(unittest.TestCase):
         self.assertIn('Up to 500 MB', html)
         self.assertIn('/static/css/app.css', html)
         self.assertIn('/static/js/htmx.min.js', html)
+        self.assertIn('/static/img/logo.svg', html)
 
         css_res = self.client.get('/static/css/app.css')
         self.assertEqual(css_res.status_code, 200)
@@ -132,6 +133,11 @@ class RoutesTests(unittest.TestCase):
         self.assertEqual(js_res.status_code, 200)
         self.assertGreater(len(js_res.data), 1000)
         js_res.close()
+
+        logo_res = self.client.get('/static/img/logo.svg')
+        self.assertEqual(logo_res.status_code, 200)
+        self.assertIn(b'<svg', logo_res.data)
+        logo_res.close()
 
     def test_upload_unicode_traversal_and_skipped(self):
         tools = registry.get_tools()
