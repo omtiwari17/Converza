@@ -1,0 +1,46 @@
+<div id="job-{{ job.id }}"
+     data-job-id="{{ job.id }}"
+     data-job-status="{{ job.status }}"
+     {% if job.status in ('queued', 'running') %}
+     hx-get="/jobs/{{ job.id }}"
+     hx-trigger="every 1s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  <div>
+    <span>{{ job.name }}</span>
+    <span>({{ job.category }} · {{ job.size | format_size }})</span>
+    <span>[{{ job.status }}]</span>
+  </div>
+
+  {% if job.status == 'uploaded' %}
+  <form hx-post="/convert/{{ job.id }}" hx-target="#job-{{ job.id }}" hx-swap="outerHTML">
+    <select name="target" aria-label="Convert {{ job.name }} to">
+      {% for t in job.targets %}
+      <option value="{{ t }}">{{ target_label(t) }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Convert</button>
+  </form>
+  {% elif job.status in ('queued', 'running') %}
+  <div>
+    <span>Converting to {{ target_label(job.target) }}...</span>
+    <progress></progress>
+  </div>
+  {% elif job.status == 'done' %}
+  <div>
+    <a href="/download/{{ job.id }}" download>Download</a>
+  </div>
+  {% elif job.status == 'error' %}
+  <div>
+    <span>Error: {{ job.error }}</span>
+    <form hx-post="/convert/{{ job.id }}" hx-target="#job-{{ job.id }}" hx-swap="outerHTML">
+      <select name="target" aria-label="Retry {{ job.name }} as">
+        {% for t in job.targets %}
+        <option value="{{ t }}" {% if t == job.target %}selected{% endif %}>{{ target_label(t) }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Retry</button>
+    </form>
+  </div>
+  {% endif %}
+</div>

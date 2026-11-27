@@ -1,0 +1,8 @@
+{% if skipped %}
+<div class="alert alert-warning" role="alert" data-skipped-notice>
+  <span>Skipped unsupported or unavailable files: {{ skipped | join(', ') }}</span>
+</div>
+{% endif %}
+{% for job in rows %}
+  {% include 'partials/job_row.html' %}
+{% endfor %}
