@@ -10,29 +10,37 @@
          {% endif %}>
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div class="flex min-w-0 flex-1 items-start gap-3">
-      <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-primary" aria-hidden="true">
-        {% if job.category == 'video' %}
+      {% if job.category == 'video' %}
+      <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-400" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>
         </svg>
-        {% elif job.category == 'audio' %}
+      </div>
+      {% elif job.category == 'audio' %}
+      <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-400/20 bg-emerald-400/10 text-emerald-400" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
         </svg>
-        {% elif job.category == 'image' %}
+      </div>
+      {% elif job.category == 'image' %}
+      <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 text-amber-400" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
         </svg>
-        {% elif job.category == 'document' %}
+      </div>
+      {% elif job.category == 'document' %}
+      <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-400/20 bg-indigo-400/10 text-indigo-400" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
         </svg>
-        {% else %}
+      </div>
+      {% else %}
+      <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-400/20 bg-rose-400/10 text-rose-400" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
         </svg>
-        {% endif %}
       </div>
+      {% endif %}
 
       <div class="min-w-0 flex-1">
         <p data-job-name class="converza-filename text-sm font-medium leading-snug">{{ job.name }}</p>
@@ -84,7 +92,7 @@
           <option value="{{ t }}" {% if t == job.default_target %}selected{% endif %}>{{ target_label(t) }}</option>
           {% endfor %}
         </select>
-        <button type="submit" class="btn btn-primary btn-sm min-h-[44px] px-4">Convert</button>
+        <button type="submit" class="btn btn-primary btn-sm min-h-[44px] px-4 converza-interactive">Convert</button>
       </form>
       <button type="button"
               data-remove-job
@@ -114,7 +122,7 @@
       {% endif %}
       <a href="/download/{{ job.id }}"
          download
-         class="btn btn-primary btn-sm min-h-[44px] flex-1 gap-2 px-4 sm:flex-none">
+         class="btn btn-primary btn-sm min-h-[44px] flex-1 gap-2 px-4 sm:flex-none converza-interactive">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>

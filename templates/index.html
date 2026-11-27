@@ -4,8 +4,8 @@
 <div id="drop-overlay"
      class="pointer-events-none fixed inset-0 z-50 hidden items-center justify-center bg-base-200/85 p-6 backdrop-blur-sm"
      aria-hidden="true">
-  <div class="flex max-w-sm flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-base-100 px-8 py-8 text-center converza-card">
-    <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-base-200 text-primary">
+  <div class="flex max-w-sm flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary px-8 py-8 text-center converza-card">
+    <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="17 8 12 3 7 8"/>
@@ -17,7 +17,8 @@
   </div>
 </div>
 
-<section class="card bg-base-100 converza-card rounded-2xl p-4 sm:p-5">
+<!-- Workbench Card -->
+<section class="converza-card rounded-2xl p-2.5 sm:p-3">
   <form id="upload-form"
         hx-post="/upload"
         hx-target="#files"
@@ -28,131 +29,188 @@
     <input id="picker" type="file" name="files" multiple class="sr-only">
     <label id="dropzone"
            for="picker"
-           class="flex min-h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed border-base-content/20 bg-base-200/60 px-4 py-6 text-center hover:border-primary/60 hover:bg-base-200 focus-within:ring-2 focus-within:ring-primary/60">
-      <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-base-100 converza-card text-primary" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+           class="converza-dropzone group relative flex min-h-[196px] w-full cursor-pointer flex-col items-center justify-center gap-4 rounded-xl px-4 py-8 text-center focus-within:ring-2 focus-within:ring-primary/60">
+      <div class="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
           <line x1="12" x2="12" y1="3" y2="15"/>
         </svg>
+      </div>
+
+      <div class="space-y-1.5">
+        <p class="text-base font-semibold tracking-tight">Drop files here to convert</p>
+        <p class="text-xs opacity-65">Tap to browse, drag anywhere on the page, or paste with <kbd class="rounded border border-base-content/20 bg-base-100 px-1.5 py-0.5 font-mono text-[10px]">Ctrl+V</kbd></p>
+      </div>
+
+      <span class="btn btn-primary btn-sm min-h-[40px] rounded-lg px-5 font-medium converza-interactive pointer-events-none">
+        Choose files
       </span>
-      <span class="text-sm font-medium">Tap to choose files, drop anywhere, or paste</span>
-      <span class="font-mono text-[11px] uppercase tracking-wider opacity-65 tabular-nums">
-        Max {{ max_upload_mb }} MB · Files stay on your device
-      </span>
+
+      <div class="flex flex-wrap items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-wider opacity-60 tabular-nums">
+        <span class="rounded-md bg-base-content/5 px-2 py-1">Max {{ max_upload_mb }} MB</span>
+        <span class="rounded-md bg-base-content/5 px-2 py-1">Zero Cloud</span>
+        <span class="rounded-md bg-base-content/5 px-2 py-1">1h Auto-Clean</span>
+      </div>
     </label>
-    <div id="upload-status" class="htmx-indicator mt-3 items-center gap-2 text-xs opacity-75">
-      <progress class="progress progress-primary h-1.5 w-24" aria-label="Uploading files"></progress>
-      <span>Uploading files...</span>
+
+    <div id="upload-status" class="htmx-indicator mt-3 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+      <progress class="progress progress-primary h-1.5 w-28" aria-label="Uploading files"></progress>
+      <span class="font-medium">Uploading files...</span>
     </div>
   </form>
 
-  <div class="mt-3 space-y-2">
-    {% if tools.ffmpeg or tools.magick or tools.tesseract %}
-    <details id="conversion-options" class="converza-details rounded-xl bg-base-200/50 px-3 py-2 text-xs">
-      <summary class="flex min-h-[36px] cursor-pointer items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-wider opacity-75">
-        <span>Conversion options (quality, resolution, OCR)</span>
-        <svg class="converza-chevron shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
-      </summary>
-      <div class="mt-2 grid grid-cols-1 gap-3 border-t border-base-content/10 pt-3 sm:grid-cols-2">
-        {% if tools.ffmpeg %}
-        <label class="flex flex-col gap-1">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Video max height</span>
-          <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
-            <option value="">Original</option>
-            <option value="1080">1080p</option>
-            <option value="720">720p (Recommended for phone)</option>
-            <option value="480">480p (Fastest)</option>
-          </select>
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Audio bitrate</span>
-          <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
-            <option value="">Default</option>
-            <option value="320k">320 kbps</option>
-            <option value="192k">192 kbps</option>
-            <option value="128k">128 kbps</option>
-            <option value="96k">96 kbps</option>
-          </select>
-        </label>
+  <!-- Compact Toolbar Strip: Options & Supported Formats -->
+  <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1">
+    <div class="flex flex-wrap items-center gap-1.5">
+      {% for item in capabilities %}
+      <span class="inline-flex items-center gap-1.5 rounded-lg border border-base-content/10 bg-base-200/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider opacity-80">
+        {% if item.category == 'video' %}
+        <span class="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden="true"></span>
+        {% elif item.category == 'audio' %}
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+        {% elif item.category == 'image' %}
+        <span class="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+        {% elif item.category == 'document' %}
+        <span class="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true"></span>
+        {% else %}
+        <span class="h-1.5 w-1.5 rounded-full bg-rose-400" aria-hidden="true"></span>
         {% endif %}
-        {% if tools.magick %}
-        <label class="flex flex-col gap-1">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">JPG / WebP quality</span>
-          <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
-            <option value="">Default</option>
-            <option value="95">95 (High)</option>
-            <option value="85">85 (Balanced)</option>
-            <option value="70">70 (Compact)</option>
-          </select>
-        </label>
-        {% endif %}
-        {% if tools.tesseract %}
-        <label class="flex flex-col gap-1">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">OCR language</span>
-          <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
-            <option value="">Default (eng)</option>
-            {% for lang in tools.ocr_langs %}
-            <option value="{{ lang }}">{{ lang }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        {% endif %}
-      </div>
-    </details>
-    {% endif %}
+        {{ item.category }}
+      </span>
+      {% endfor %}
+    </div>
 
-    {% if capabilities %}
-    <details class="converza-details rounded-xl bg-base-200/50 px-3 py-2 text-xs">
-      <summary class="flex min-h-[36px] cursor-pointer items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-wider opacity-75">
-        <span>Supported formats on this device ({{ capabilities | length }} {% if capabilities | length == 1 %}category{% else %}categories{% endif %})</span>
-        <svg class="converza-chevron shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6"/>
+    <div class="flex items-center gap-1.5">
+      {% if tools.ffmpeg or tools.magick or tools.tesseract %}
+      <button type="button"
+              id="toggle-options-btn"
+              aria-expanded="false"
+              aria-controls="conversion-options"
+              class="btn btn-ghost btn-xs min-h-[36px] gap-1.5 rounded-lg border border-base-content/10 px-3 font-mono text-[11px] uppercase tracking-wider converza-interactive">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>
         </svg>
-      </summary>
-      <dl class="mt-2 space-y-2 border-t border-base-content/10 pt-2">
-        {% for item in capabilities %}
-        <div class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
-          <dt class="w-24 shrink-0 font-mono text-[11px] uppercase tracking-wider text-primary">{{ item.category }}</dt>
-          <dd class="opacity-80">
-            {{ item.inputs | join(', ') }} → {{ item.targets | join(', ') }}
-          </dd>
-        </div>
-        {% endfor %}
-      </dl>
-    </details>
-    {% endif %}
+        <span>Options</span>
+        <span id="options-active-dot" class="hidden h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+      </button>
+      {% endif %}
+
+      {% if capabilities %}
+      <button type="button"
+              id="toggle-formats-btn"
+              aria-expanded="false"
+              aria-controls="supported-formats-panel"
+              class="btn btn-ghost btn-xs min-h-[36px] gap-1.5 rounded-lg border border-base-content/10 px-3 font-mono text-[11px] uppercase tracking-wider converza-interactive">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>
+        </svg>
+        <span>Formats</span>
+      </button>
+      {% endif %}
+    </div>
   </div>
+
+  <!-- Collapsible Conversion Options Panel -->
+  {% if tools.ffmpeg or tools.magick or tools.tesseract %}
+  <div id="conversion-options" class="hidden mt-3 rounded-xl border border-base-content/10 bg-base-200/60 p-3.5">
+    <div class="mb-2.5 flex items-center justify-between">
+      <span class="font-mono text-[11px] uppercase tracking-wider opacity-75">Conversion options</span>
+      <button type="button" id="reset-options-btn" class="font-mono text-[10px] uppercase tracking-wider text-primary hover:underline">Reset defaults</button>
+    </div>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {% if tools.ffmpeg %}
+      <label class="flex flex-col gap-1">
+        <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Video max height</span>
+        <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+          <option value="">Original</option>
+          <option value="1080">1080p</option>
+          <option value="720">720p (Recommended)</option>
+          <option value="480">480p (Fastest)</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Audio bitrate</span>
+        <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+          <option value="">Default</option>
+          <option value="320k">320 kbps</option>
+          <option value="192k">192 kbps</option>
+          <option value="128k">128 kbps</option>
+          <option value="96k">96 kbps</option>
+        </select>
+      </label>
+      {% endif %}
+      {% if tools.magick %}
+      <label class="flex flex-col gap-1">
+        <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">JPG / WebP quality</span>
+        <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+          <option value="">Default</option>
+          <option value="95">95 (High)</option>
+          <option value="85">85 (Balanced)</option>
+          <option value="70">70 (Compact)</option>
+        </select>
+      </label>
+      {% endif %}
+      {% if tools.tesseract %}
+      <label class="flex flex-col gap-1">
+        <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">OCR language</span>
+        <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-100 text-xs">
+          <option value="">Default (eng)</option>
+          {% for lang in tools.ocr_langs %}
+          <option value="{{ lang }}">{{ lang }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Collapsible Supported Formats Matrix -->
+  {% if capabilities %}
+  <div id="supported-formats-panel" class="hidden mt-3 rounded-xl border border-base-content/10 bg-base-200/60 p-3.5">
+    <p class="mb-2.5 font-mono text-[11px] uppercase tracking-wider opacity-75">Supported formats on this device</p>
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {% for item in capabilities %}
+      <div class="rounded-lg border border-base-content/10 bg-base-100/80 p-2.5 text-xs">
+        <div class="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-primary">
+          <span>{{ item.category }}</span>
+        </div>
+        <p class="font-mono text-[11px] opacity-65">{{ item.inputs | join(', ') }}</p>
+        <p class="mt-1 text-[11px] opacity-90">→ {{ item.targets | join(', ') }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 </section>
 
 <div id="live-status" class="sr-only" role="status" aria-live="polite"></div>
 <div id="upload-error" class="space-y-2"></div>
 
-<section id="bulk-bar" class="hidden card bg-base-100 converza-card rounded-xl p-3">
+<section id="bulk-bar" class="hidden converza-card rounded-xl p-3">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <span id="bulk-summary" class="font-mono text-xs uppercase tracking-wider opacity-75 tabular-nums">0 files</span>
     <div class="flex flex-wrap items-center gap-2">
       <button id="convert-all-btn"
               type="button"
-              class="btn btn-primary btn-sm min-h-[44px] px-4">
+              class="btn btn-primary btn-sm min-h-[44px] px-4 converza-interactive">
         Convert all
       </button>
       <a id="download-zip-btn"
          href="#"
-         class="btn btn-outline btn-sm min-h-[44px] px-4 btn-disabled"
+         class="btn btn-outline btn-sm min-h-[44px] px-4 btn-disabled converza-interactive"
          aria-disabled="true">
         Download all (ZIP)
       </a>
       <button id="clear-done-btn"
               type="button"
-              class="btn btn-ghost btn-sm min-h-[44px] px-3 hidden">
+              class="btn btn-ghost btn-sm min-h-[44px] px-3 hidden converza-interactive">
         Clear done
       </button>
       <button id="clear-all-btn"
               type="button"
-              class="btn btn-ghost btn-sm min-h-[44px] px-3">
+              class="btn btn-ghost btn-sm min-h-[44px] px-3 converza-interactive">
         Clear all
       </button>
     </div>
@@ -178,6 +236,46 @@
     var liveStatus = document.getElementById('live-status');
     var dragDepth = 0;
 
+    function wireDisclosure(btnId, panelId) {
+      var btn = document.getElementById(btnId);
+      var panel = document.getElementById(panelId);
+      if (!btn || !panel) return;
+      btn.addEventListener('click', function () {
+        var open = panel.classList.toggle('hidden') === false;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.classList.toggle('border-primary/40', open);
+        btn.classList.toggle('text-primary', open);
+      });
+    }
+
+    wireDisclosure('toggle-options-btn', 'conversion-options');
+    wireDisclosure('toggle-formats-btn', 'supported-formats-panel');
+
+    var optsPanel = document.getElementById('conversion-options');
+    var optsDot = document.getElementById('options-active-dot');
+    var resetOptsBtn = document.getElementById('reset-options-btn');
+
+    function syncOptionsDot() {
+      if (!optsPanel || !optsDot) return;
+      var active = false;
+      optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
+        if (sel.value) active = true;
+      });
+      optsDot.classList.toggle('hidden', !active);
+    }
+
+    if (optsPanel) {
+      optsPanel.addEventListener('change', syncOptionsDot);
+    }
+    if (resetOptsBtn && optsPanel) {
+      resetOptsBtn.addEventListener('click', function () {
+        optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
+          sel.value = '';
+        });
+        syncOptionsDot();
+      });
+    }
+
     function queueFiles(fileList) {
       if (!picker || !fileList || !fileList.length) return;
       try {
@@ -193,7 +291,6 @@
     function setDragging(active) {
       if (dropzone) {
         dropzone.classList.toggle('border-primary', active);
-        dropzone.classList.toggle('bg-base-200', active);
       }
       if (dropOverlay) {
         dropOverlay.classList.toggle('hidden', !active);
@@ -297,9 +394,8 @@
           payload['target_' + row.getAttribute('data-job-id')] = select.value;
           count++;
         });
-        var optsRoot = document.getElementById('conversion-options');
-        if (optsRoot) {
-          optsRoot.querySelectorAll('select[name]').forEach(function (sel) {
+        if (optsPanel) {
+          optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
             if (sel.value) payload[sel.name] = sel.value;
           });
         }
