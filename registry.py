@@ -19,7 +19,7 @@ TARGETS: dict[str, list[str]] = {
     'audio': ['mp3', 'wav', 'flac', 'ogg', 'm4a'],
     'image': ['png', 'jpg', 'webp', 'gif', 'bmp', 'tiff', 'pdf', 'ocr_txt'],
     'document': ['md', 'html', 'docx', 'odt', 'epub', 'txt'],
-    'pdf': ['png', 'jpg', 'txt'],
+    'pdf': ['png', 'jpg', 'txt', 'html', 'docx', 'md', 'odt', 'epub'],
 }
 
 TARGET_LABELS: dict[str, str] = {
@@ -137,6 +137,7 @@ def get_tools() -> dict[str, str | bool | list[str] | None]:
         'pandoc': shutil.which('pandoc'),
         'pdftoppm': shutil.which('pdftoppm'),
         'pdftotext': shutil.which('pdftotext'),
+        'pdftohtml': shutil.which('pdftohtml'),
     }
 
 
@@ -164,6 +165,10 @@ def is_target_available(category: str, target: str) -> bool:
     if category == 'pdf':
         if target == 'txt':
             return bool(tools['pdftotext'])
+        if target == 'html':
+            return bool(tools['pdftohtml'])
+        if target in ('docx', 'md', 'odt', 'epub'):
+            return bool(tools['pdftohtml']) and bool(tools['pandoc'])
         return bool(tools['pdftoppm'])
     return False
 
@@ -281,11 +286,54 @@ def build_cmd(
         if target == 'txt':
             pdftotext = str(tools['pdftotext'] or 'pdftotext')
             return [pdftotext, src_str, out], out
+        if target == 'html':
+            pdftohtml = str(tools['pdftohtml'] or 'pdftohtml')
+            stage_base = f'{dst_str}_stage'
+            return [pdftohtml, '-s', '-i', '-noframes', src_str, stage_base], f'{stage_base}-html.html'
+        if target in ('docx', 'md', 'odt', 'epub'):
+            raise ValueError('Multi-step PDF document targets must use build_steps()')
         pdftoppm = str(tools['pdftoppm'] or 'pdftoppm')
         flag = '-png' if target == 'png' else '-jpeg'
         return [pdftoppm, flag, src_str, dst_str], out
 
     raise ValueError(f'Unsupported category: {category}')
+
+
+def build_steps(
+    category: str,
+    src: str | Path,
+    dst_base: str | Path,
+    target: str,
+    *,
+    require_tool: bool = True,
+    options: dict | None = None,
+) -> tuple[list[list[str]], str]:
+    """Build one or more sequential subprocess argument lists for a conversion."""
+    if category == 'pdf' and target in ('docx', 'md', 'odt', 'epub'):
+        if require_tool and not is_target_available(category, target):
+            raise RuntimeError(f'Required converter tool is not available for {category} -> {target}')
+        tools = get_tools()
+        pdftohtml = str(tools['pdftohtml'] or 'pdftohtml')
+        pandoc = str(tools['pandoc'] or 'pandoc')
+        stage_base = f'{dst_base}_stage'
+        stage_html = f'{stage_base}-html.html'
+        out = f'{dst_base}.{target}'
+        return (
+            [
+                [pdftohtml, '-s', '-i', '-noframes', str(src), stage_base],
+                [pandoc, stage_html, '-o', out],
+            ],
+            out,
+        )
+    cmd, out = build_cmd(
+        category,
+        src,
+        dst_base,
+        target,
+        require_tool=require_tool,
+        options=options,
+    )
+    return [cmd], out
 
 
 def is_multipage_target(category: str, target: str) -> bool:

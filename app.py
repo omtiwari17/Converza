@@ -199,8 +199,8 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             options = registry.validate_options(_extract_options(request.form))
         except ValueError:
             abort(400)
-        cmd, out = registry.build_cmd(job['category'], src, dst_base, target, options=options)
-        updated, err = jobs.submit(job_id, cmd, out, target)
+        steps, out = registry.build_steps(job['category'], src, dst_base, target, options=options)
+        updated, err = jobs.submit(job_id, steps, out, target)
         if err == 'not_found' or updated is None:
             abort(404)
         status_code = 409 if err == 'already_active' else 200
@@ -232,8 +232,8 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
                 abort(400)
             src = UPLOAD_DIR / jid / f"in.{job['ext']}"
             dst_base = OUTPUT_DIR / jid / 'out'
-            cmd, out = registry.build_cmd(job['category'], src, dst_base, target, options=options)
-            pending_specs.append((job, cmd, out, target))
+            steps, out = registry.build_steps(job['category'], src, dst_base, target, options=options)
+            pending_specs.append((job, steps, out, target))
 
         if not matched_any:
             abort(404)

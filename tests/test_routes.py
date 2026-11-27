@@ -261,9 +261,11 @@ class RoutesTests(unittest.TestCase):
             'magick': 'magick',
             'magick_pdf': True,
             'tesseract': 'tesseract',
+            'ocr_langs': ['eng'],
             'pandoc': 'pandoc',
             'pdftoppm': 'pdftoppm',
             'pdftotext': 'pdftotext',
+            'pdftohtml': 'pdftohtml',
         }
 
         def fake_popen(cmd, **_kwargs):
@@ -442,6 +444,55 @@ class RoutesTests(unittest.TestCase):
         with jobs.LOCK:
             jobs._ACTIVE_PROCS.pop(job2['id'], None)
             jobs._CANCELLED_JOBS.discard(job2['id'])
+
+    def test_pdf_to_docx_multistep_pipeline_and_download(self):
+        fake_tools = {
+            'ffmpeg': None,
+            'magick': None,
+            'magick_pdf': False,
+            'tesseract': None,
+            'ocr_langs': [],
+            'pandoc': 'pandoc',
+            'pdftoppm': None,
+            'pdftotext': None,
+            'pdftohtml': 'pdftohtml',
+        }
+
+        def fake_popen(cmd, **_kwargs):
+            proc = mock.Mock()
+            proc.returncode = 0
+
+            def _comm(timeout=None):
+                if cmd[0] == 'pdftohtml':
+                    Path(f'{cmd[-1]}-html.html').write_text('<html><body><p>PDF Body</p></body></html>', encoding='utf-8')
+                elif cmd[0] == 'pandoc':
+                    self.assertTrue(Path(cmd[1]).is_file())
+                    Path(cmd[3]).write_bytes(b'PK\x03\x04fake-docx')
+                return (b'', b'')
+
+            proc.communicate.side_effect = _comm
+            return proc
+
+        with mock.patch('registry.get_tools', return_value=fake_tools), \
+             mock.patch('jobs.subprocess.Popen', side_effect=fake_popen):
+            up = self.client.post(
+                '/upload',
+                data={'files': (io.BytesIO(_make_sample_pdf()), 'report.pdf')},
+                content_type='multipart/form-data',
+            )
+            self.assertEqual(up.status_code, 200)
+            job_id = self._extract_job_id(up.get_data(as_text=True))
+
+            conv = self.client.post(f'/convert/{job_id}', data={'target': 'docx'})
+            self.assertEqual(conv.status_code, 200)
+            done_html = self._wait_until_finished(job_id)
+            self.assertIn('data-job-status="done"', done_html)
+
+            dl = self.client.get(f'/download/{job_id}')
+            self.assertEqual(dl.status_code, 200)
+            self.assertIn('report.docx', dl.headers.get('Content-Disposition', ''))
+            self.assertEqual(dl.data, b'PK\x03\x04fake-docx')
+            dl.close()
 
 
 if __name__ == '__main__':

@@ -125,13 +125,30 @@ def _finalize_output(job_id: str, category: str, target: str, out_path: str | Pa
         return zip_path
 
     final_path = Path(out_path)
+    if not final_path.is_file() and final_path.name.endswith('_stage-html.html'):
+        alt_path = final_path.with_name(final_path.name.replace('_stage-html.html', '_stage.html'))
+        if alt_path.is_file():
+            final_path = alt_path
     if not final_path.is_file():
         raise RuntimeError('Converter finished without creating an output file')
     return final_path
 
 
-def run_job(job_id: str, cmd: list[str], out_path: str | Path, category: str, target: str) -> None:
-    """Execute one conversion command in the worker thread and update job state."""
+def _normalize_stage_html(cmd: list[str]) -> None:
+    """Handle Poppler pdftohtml -s output naming differences before a pandoc step."""
+    for arg in cmd:
+        if arg.endswith('_stage-html.html'):
+            expected = Path(arg)
+            alt = expected.with_name(expected.name.replace('_stage-html.html', '_stage.html'))
+            if not expected.is_file() and alt.is_file():
+                alt.replace(expected)
+
+
+def run_job(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: str | Path, category: str, target: str) -> None:
+    """Execute one or more conversion commands sequentially and update job state."""
+    steps: list[list[str]] = (
+        [cmd_or_steps] if cmd_or_steps and isinstance(cmd_or_steps[0], str) else cmd_or_steps  # type: ignore[assignment]
+    )
     with LOCK:
         job = JOBS.get(job_id)
         if job is None or job_id in _CANCELLED_JOBS or job['status'] != 'queued':
@@ -141,35 +158,38 @@ def run_job(job_id: str, cmd: list[str], out_path: str | Path, category: str, ta
 
     proc: subprocess.Popen | None = None
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        with LOCK:
-            if job_id in _CANCELLED_JOBS:
-                proc.terminate()
-                raise InterruptedError('Cancelled')
-            _ACTIVE_PROCS[job_id] = proc
-
-        stdout, stderr = proc.communicate(timeout=CONVERT_TIMEOUT)
-        with LOCK:
-            was_cancelled = job_id in _CANCELLED_JOBS
-            _CANCELLED_JOBS.discard(job_id)
-            _ACTIVE_PROCS.pop(job_id, None)
-
-        if was_cancelled:
-            _clear_job_outputs(job_id)
+        for step_cmd in steps:
+            _normalize_stage_html(step_cmd)
+            proc = subprocess.Popen(step_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             with LOCK:
-                if job_id in JOBS:
-                    JOBS[job_id].update(status='error', error='Cancelled', output=None)
-            return
+                if job_id in _CANCELLED_JOBS:
+                    proc.terminate()
+                    raise InterruptedError('Cancelled')
+                _ACTIVE_PROCS[job_id] = proc
 
-        if proc.returncode != 0:
-            err_txt = (stderr or b'').decode(errors='ignore').strip()
-            out_txt = (stdout or b'').decode(errors='ignore').strip()
-            msg = (err_txt or out_txt or 'Conversion failed')[-300:]
+            stdout, stderr = proc.communicate(timeout=CONVERT_TIMEOUT)
             with LOCK:
-                if job_id in JOBS:
-                    JOBS[job_id].update(status='error', error=msg, output=None)
-            return
+                was_cancelled = job_id in _CANCELLED_JOBS
+                _ACTIVE_PROCS.pop(job_id, None)
 
+            if was_cancelled:
+                _CANCELLED_JOBS.discard(job_id)
+                _clear_job_outputs(job_id)
+                with LOCK:
+                    if job_id in JOBS:
+                        JOBS[job_id].update(status='error', error='Cancelled', output=None)
+                return
+
+            if proc.returncode != 0:
+                err_txt = (stderr or b'').decode(errors='ignore').strip()
+                out_txt = (stdout or b'').decode(errors='ignore').strip()
+                msg = (err_txt or out_txt or 'Conversion failed')[-300:]
+                with LOCK:
+                    if job_id in JOBS:
+                        JOBS[job_id].update(status='error', error=msg, output=None)
+                return
+
+        _CANCELLED_JOBS.discard(job_id)
         final_out = _finalize_output(job_id, category, target, out_path)
         with LOCK:
             if job_id in JOBS:
@@ -229,7 +249,7 @@ def cancel_job(job_id: str) -> tuple[dict | None, str | None]:
     return snapshot, None
 
 
-def submit(job_id: str, cmd: list[str], out_path: str | Path, target: str) -> tuple[dict | None, str | None]:
+def submit(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: str | Path, target: str) -> tuple[dict | None, str | None]:
     """Queue a job for conversion. Returns (job_snapshot, error_code)."""
     with LOCK:
         job = JOBS.get(job_id)
@@ -243,7 +263,7 @@ def submit(job_id: str, cmd: list[str], out_path: str | Path, target: str) -> tu
         job.update(target=target, status='queued', error=None, output=None)
         snapshot = dict(job)
 
-    POOL.submit(run_job, job_id, cmd, out_path, category, target)
+    POOL.submit(run_job, job_id, cmd_or_steps, out_path, category, target)
     return snapshot, None
 
 

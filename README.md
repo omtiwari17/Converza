@@ -10,7 +10,7 @@ A lightweight, private, self-hosted file converter built with Flask, Waitress, H
 | **Audio** | `mp3`, `wav`, `flac`, `ogg`, `m4a`, `aac` | `mp3`, `wav`, `flac`, `ogg`, `m4a` | `ffmpeg` |
 | **Image** | `png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`, `tiff` | `png`, `jpg`, `webp`, `gif`, `bmp`, `tiff`, `pdf`, `Text (OCR)` | `magick` / `convert`, `tesseract` |
 | **Document** | `md`, `html`, `docx`, `odt`, `epub`, `txt`, `rst` | `md`, `html`, `docx`, `odt`, `epub`, `txt` | `pandoc` |
-| **PDF** | `pdf` | `png`, `jpg`, `txt` | `pdftoppm`, `pdftotext` |
+| **PDF** | `pdf` | `png`, `jpg`, `txt`, `html`, `docx`, `md`, `odt`, `epub` | `pdftoppm`, `pdftotext`, `pdftohtml` + `pandoc` |
 
 Missing tools and restricted ImageMagick PDF policies are detected at startup and automatically hidden in the UI. Multi-page PDF renders (`png`/`jpg`) are bundled into a `.zip` automatically.
 

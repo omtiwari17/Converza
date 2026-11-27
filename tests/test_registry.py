@@ -121,15 +121,29 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             registry.validate_options({'ocr_lang': 'invalid_lang'})
 
+    def test_pdf_to_html_and_docx_steps(self):
+        steps_html, out_html = registry.build_steps('pdf', 'in.pdf', 'out', 'html', require_tool=False)
+        self.assertEqual(len(steps_html), 1)
+        self.assertEqual(steps_html[0][1:], ['-s', '-i', '-noframes', 'in.pdf', 'out_stage'])
+        self.assertEqual(out_html, 'out_stage-html.html')
+
+        steps_docx, out_docx = registry.build_steps('pdf', 'in.pdf', 'out', 'docx', require_tool=False)
+        self.assertEqual(len(steps_docx), 2)
+        self.assertEqual(steps_docx[0][1:], ['-s', '-i', '-noframes', 'in.pdf', 'out_stage'])
+        self.assertEqual(steps_docx[1][1:], ['out_stage-html.html', '-o', 'out.docx'])
+        self.assertEqual(out_docx, 'out.docx')
+
     def test_available_targets_hides_missing_tools_and_pdf_policy(self):
         fake_tools = {
             'ffmpeg': None,
             'magick': '/usr/bin/magick',
             'magick_pdf': False,
             'tesseract': '/usr/bin/tesseract',
+            'ocr_langs': ['eng'],
             'pandoc': None,
             'pdftoppm': '/usr/bin/pdftoppm',
             'pdftotext': None,
+            'pdftohtml': None,
         }
         with mock.patch('registry.get_tools', return_value=fake_tools):
             self.assertEqual(registry.available_targets('video'), [])
