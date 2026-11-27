@@ -82,9 +82,16 @@
           </div>
         </label>
 
-        <div id="upload-status" class="htmx-indicator mt-3 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
-          <progress class="progress progress-primary h-1.5 w-28" aria-label="Uploading files"></progress>
-          <span class="font-medium">Uploading files...</span>
+        <div id="upload-status" class="htmx-indicator mt-3 items-center justify-between gap-3 rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+          <div class="flex items-center gap-2.5">
+            <progress class="progress progress-primary h-1.5 w-28" aria-label="Uploading files"></progress>
+            <span class="font-medium">Uploading files...</span>
+          </div>
+          <button type="button"
+                  id="cancel-upload-btn"
+                  class="btn btn-ghost btn-xs min-h-[32px] rounded-md px-2.5 text-xs font-medium text-base-content hover:bg-base-content/10">
+            Cancel
+          </button>
         </div>
       </form>
     </section>
@@ -248,6 +255,8 @@
 <script>
   (function () {
     var picker = document.getElementById('picker');
+    var uploadForm = document.getElementById('upload-form');
+    var cancelUploadBtn = document.getElementById('cancel-upload-btn');
     var dropzone = document.getElementById('dropzone');
     var dropOverlay = document.getElementById('drop-overlay');
     var filesEl = document.getElementById('files');
@@ -266,6 +275,15 @@
     var resetOptsBtn = document.getElementById('reset-options-btn');
     var optsEmptyHint = document.getElementById('options-empty-hint');
     var optsFields = document.getElementById('options-fields');
+
+    if (cancelUploadBtn && uploadForm) {
+      cancelUploadBtn.addEventListener('click', function () {
+        if (typeof htmx !== 'undefined') {
+          htmx.trigger(uploadForm, 'htmx:abort');
+        }
+        if (picker) picker.value = '';
+      });
+    }
 
     if (toggleOptsBtn && optsPanel) {
       toggleOptsBtn.addEventListener('click', function () {

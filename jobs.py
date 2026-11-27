@@ -19,6 +19,8 @@ import registry
 JOBS: dict[str, dict] = {}
 LOCK = threading.Lock()
 POOL = ThreadPoolExecutor(max_workers=1)
+_ACTIVE_PROCS: dict[str, subprocess.Popen] = {}
+_CANCELLED_JOBS: set[str] = set()
 _CLEANUP_STARTED = False
 _CLEANUP_LOCK = threading.Lock()
 
@@ -131,31 +133,100 @@ def _finalize_output(job_id: str, category: str, target: str, out_path: str | Pa
 def run_job(job_id: str, cmd: list[str], out_path: str | Path, category: str, target: str) -> None:
     """Execute one conversion command in the worker thread and update job state."""
     with LOCK:
-        if job_id not in JOBS:
+        job = JOBS.get(job_id)
+        if job is None or job_id in _CANCELLED_JOBS or job['status'] != 'queued':
+            _CANCELLED_JOBS.discard(job_id)
             return
-        JOBS[job_id]['status'] = 'running'
+        job['status'] = 'running'
 
+    proc: subprocess.Popen | None = None
     try:
-        subprocess.run(cmd, check=True, timeout=CONVERT_TIMEOUT, capture_output=True)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with LOCK:
+            if job_id in _CANCELLED_JOBS:
+                proc.terminate()
+                raise InterruptedError('Cancelled')
+            _ACTIVE_PROCS[job_id] = proc
+
+        stdout, stderr = proc.communicate(timeout=CONVERT_TIMEOUT)
+        with LOCK:
+            was_cancelled = job_id in _CANCELLED_JOBS
+            _CANCELLED_JOBS.discard(job_id)
+            _ACTIVE_PROCS.pop(job_id, None)
+
+        if was_cancelled:
+            _clear_job_outputs(job_id)
+            with LOCK:
+                if job_id in JOBS:
+                    JOBS[job_id].update(status='error', error='Cancelled', output=None)
+            return
+
+        if proc.returncode != 0:
+            err_txt = (stderr or b'').decode(errors='ignore').strip()
+            out_txt = (stdout or b'').decode(errors='ignore').strip()
+            msg = (err_txt or out_txt or 'Conversion failed')[-300:]
+            with LOCK:
+                if job_id in JOBS:
+                    JOBS[job_id].update(status='error', error=msg, output=None)
+            return
+
         final_out = _finalize_output(job_id, category, target, out_path)
         with LOCK:
             if job_id in JOBS:
                 JOBS[job_id].update(status='done', output=str(final_out), error=None)
     except subprocess.TimeoutExpired:
+        if proc is not None:
+            proc.kill()
+            proc.communicate()
         with LOCK:
+            _ACTIVE_PROCS.pop(job_id, None)
+            _CANCELLED_JOBS.discard(job_id)
             if job_id in JOBS:
                 JOBS[job_id].update(status='error', error='Timed out', output=None)
-    except subprocess.CalledProcessError as exc:
-        stderr = (exc.stderr or b'').decode(errors='ignore').strip()
-        stdout = (exc.stdout or b'').decode(errors='ignore').strip()
-        msg = (stderr or stdout or 'Conversion failed')[-300:]
+    except InterruptedError:
+        if proc is not None:
+            try:
+                proc.kill()
+                proc.communicate()
+            except OSError:
+                pass
+        _clear_job_outputs(job_id)
         with LOCK:
+            _ACTIVE_PROCS.pop(job_id, None)
+            _CANCELLED_JOBS.discard(job_id)
             if job_id in JOBS:
-                JOBS[job_id].update(status='error', error=msg, output=None)
+                JOBS[job_id].update(status='error', error='Cancelled', output=None)
     except (OSError, RuntimeError) as exc:
         with LOCK:
+            _ACTIVE_PROCS.pop(job_id, None)
+            _CANCELLED_JOBS.discard(job_id)
             if job_id in JOBS:
                 JOBS[job_id].update(status='error', error=str(exc)[-300:], output=None)
+
+
+def cancel_job(job_id: str) -> tuple[dict | None, str | None]:
+    """Cancel a queued or running job. Returns (snapshot, error_code)."""
+    if not is_valid_job_id(job_id):
+        return None, 'not_found'
+    proc: subprocess.Popen | None = None
+    with LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            return None, 'not_found'
+        if job['status'] not in ('queued', 'running'):
+            return dict(job), 'not_active'
+        _CANCELLED_JOBS.add(job_id)
+        proc = _ACTIVE_PROCS.get(job_id)
+        if job['status'] == 'queued':
+            job.update(status='error', error='Cancelled', output=None)
+        snapshot = dict(job)
+
+    if proc is not None:
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+    return snapshot, None
 
 
 def submit(job_id: str, cmd: list[str], out_path: str | Path, target: str) -> tuple[dict | None, str | None]:
@@ -167,6 +238,7 @@ def submit(job_id: str, cmd: list[str], out_path: str | Path, target: str) -> tu
         if job['status'] in ('queued', 'running'):
             return dict(job), 'already_active'
         category = job['category']
+        _CANCELLED_JOBS.discard(job_id)
         _clear_job_outputs(job_id)
         job.update(target=target, status='queued', error=None, output=None)
         snapshot = dict(job)

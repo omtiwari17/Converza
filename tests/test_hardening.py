@@ -111,7 +111,14 @@ class HardeningTests(unittest.TestCase):
 
     def test_subprocess_timeout_sets_error_state(self):
         job, _ = jobs.create_job('slow.mp4', 'video', 'mp4', size=100)
-        with mock.patch('jobs.subprocess.run', side_effect=subprocess.TimeoutExpired(cmd=['ffmpeg'], timeout=900)):
+        with jobs.LOCK:
+            jobs.JOBS[job['id']]['status'] = 'queued'
+        fake_proc = mock.Mock()
+        fake_proc.communicate.side_effect = [
+            subprocess.TimeoutExpired(cmd=['ffmpeg'], timeout=900),
+            (b'', b''),
+        ]
+        with mock.patch('jobs.subprocess.Popen', return_value=fake_proc):
             jobs.run_job(job['id'], ['ffmpeg', '-i', 'in.mp4', 'out.mp3'], config.OUTPUT_DIR / job['id'] / 'out.mp3', 'video', 'mp3')
         updated = jobs.get_job(job['id'])
         self.assertEqual(updated['status'], 'error')
@@ -122,21 +129,28 @@ class HardeningTests(unittest.TestCase):
         max_active = 0
         guard = threading.Lock()
 
-        def slow_run(cmd, **_kwargs):
-            nonlocal active, max_active
-            with guard:
-                active += 1
-                max_active = max(max_active, active)
-            time.sleep(0.15)
-            Path(cmd[-1]).write_bytes(b'ok')
-            with guard:
-                active -= 1
-            return mock.Mock(returncode=0)
+        def slow_popen(cmd, **_kwargs):
+            proc = mock.Mock()
+            proc.returncode = 0
+
+            def _comm(timeout=None):
+                nonlocal active, max_active
+                with guard:
+                    active += 1
+                    max_active = max(max_active, active)
+                time.sleep(0.15)
+                Path(cmd[-1]).write_bytes(b'ok')
+                with guard:
+                    active -= 1
+                return (b'', b'')
+
+            proc.communicate.side_effect = _comm
+            return proc
 
         j1, _ = jobs.create_job('one.txt', 'document', 'txt', size=5)
         j2, _ = jobs.create_job('two.txt', 'document', 'txt', size=5)
 
-        with mock.patch('jobs.subprocess.run', side_effect=slow_run):
+        with mock.patch('jobs.subprocess.Popen', side_effect=slow_popen):
             jobs.submit(j1['id'], ['pandoc', 'in.txt', '-o', str(config.OUTPUT_DIR / j1['id'] / 'out.html')], config.OUTPUT_DIR / j1['id'] / 'out.html', 'html')
             jobs.submit(j2['id'], ['pandoc', 'in.txt', '-o', str(config.OUTPUT_DIR / j2['id'] / 'out.html')], config.OUTPUT_DIR / j2['id'] / 'out.html', 'html')
 

@@ -280,6 +280,14 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             abort(409 if reason == 'active' else 404)
         return '', 200
 
+    @application.post('/jobs/<job_id>/cancel')
+    def cancel_job_route(job_id: str):
+        updated, err = jobs.cancel_job(job_id)
+        if err == 'not_found' or updated is None:
+            abort(404)
+        status_code = 409 if err == 'not_active' else 200
+        return render_template('partials/job_row.html', job=_row_context(updated)), status_code
+
     @application.get('/download/<job_id>')
     def download(job_id: str):
         job = jobs.get_job(job_id) or abort(404)

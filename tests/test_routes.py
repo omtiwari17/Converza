@@ -266,22 +266,28 @@ class RoutesTests(unittest.TestCase):
             'pdftotext': 'pdftotext',
         }
 
-        def fake_subprocess_run(cmd, **_kwargs):
-            # Write synthetic output for the target command
-            if cmd[0] == 'tesseract':
-                Path(f'{cmd[2]}.txt').write_text('ocr result', encoding='utf-8')
-            elif cmd[0] == 'pdftoppm':
-                ext = 'png' if '-png' in cmd else 'jpg'
-                Path(f'{cmd[3]}-1.{ext}').write_bytes(b'page1')
-                Path(f'{cmd[3]}-2.{ext}').write_bytes(b'page2')
-            elif cmd[0] == 'pandoc':
-                Path(cmd[3]).write_text('<h1>doc</h1>', encoding='utf-8')
-            else:
-                Path(cmd[-1]).write_bytes(b'converted-bytes')
-            return mock.Mock(returncode=0)
+        def fake_popen(cmd, **_kwargs):
+            proc = mock.Mock()
+            proc.returncode = 0
+
+            def _comm(timeout=None):
+                if cmd[0] == 'tesseract':
+                    Path(f'{cmd[2]}.txt').write_text('ocr result', encoding='utf-8')
+                elif cmd[0] == 'pdftoppm':
+                    ext = 'png' if '-png' in cmd else 'jpg'
+                    Path(f'{cmd[3]}-1.{ext}').write_bytes(b'page1')
+                    Path(f'{cmd[3]}-2.{ext}').write_bytes(b'page2')
+                elif cmd[0] == 'pandoc':
+                    Path(cmd[3]).write_text('<h1>doc</h1>', encoding='utf-8')
+                else:
+                    Path(cmd[-1]).write_bytes(b'converted-bytes')
+                return (b'', b'')
+
+            proc.communicate.side_effect = _comm
+            return proc
 
         with mock.patch('registry.get_tools', return_value=fake_tools), \
-             mock.patch('jobs.subprocess.run', side_effect=fake_subprocess_run):
+             mock.patch('jobs.subprocess.Popen', side_effect=fake_popen):
             files_payload = [
                 (io.BytesIO(b'mp4data'), 'clip.mp4'),
                 (io.BytesIO(b'wavdata'), 'song.wav'),
@@ -408,6 +414,34 @@ class RoutesTests(unittest.TestCase):
         prev_html = prev_res.get_data(as_text=True)
         self.assertIn('Previewable OCR Text', prev_html)
         self.assertIn('command="--copy"', prev_html)
+
+    def test_cancel_queued_and_running_job(self):
+        job, _ = jobs.create_job('queued.pdf', 'pdf', 'pdf', size=10)
+        self.assertEqual(self.client.post(f"/jobs/{job['id']}/cancel").status_code, 409)
+        self.assertEqual(self.client.post('/jobs/missing/cancel').status_code, 404)
+
+        with jobs.LOCK:
+            jobs.JOBS[job['id']]['status'] = 'queued'
+            jobs.JOBS[job['id']]['target'] = 'txt'
+        res = self.client.post(f"/jobs/{job['id']}/cancel")
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn('data-job-status="error"', html)
+        self.assertIn('Cancelled', html)
+
+        # Running Popen process is terminated when cancelled
+        job2, _ = jobs.create_job('running.pdf', 'pdf', 'pdf', size=10)
+        fake_proc = mock.Mock()
+        with jobs.LOCK:
+            jobs.JOBS[job2['id']]['status'] = 'running'
+            jobs.JOBS[job2['id']]['target'] = 'txt'
+            jobs._ACTIVE_PROCS[job2['id']] = fake_proc
+        res2 = self.client.post(f"/jobs/{job2['id']}/cancel")
+        self.assertEqual(res2.status_code, 200)
+        fake_proc.terminate.assert_called_once()
+        with jobs.LOCK:
+            jobs._ACTIVE_PROCS.pop(job2['id'], None)
+            jobs._CANCELLED_JOBS.discard(job2['id'])
 
 
 if __name__ == '__main__':
