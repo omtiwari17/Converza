@@ -16,66 +16,73 @@
       } catch (e) {}
     })();
   </script>
-  <title>{% block title %}Converza{% endblock %}</title>
+  <title>{% block title %}Converza — Local File Converter{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <script src="{{ url_for('static', filename='js/htmx.min.js') }}" defer></script>
 </head>
 <body class="bg-base-200 text-base-content converza-bg antialiased selection:bg-primary/20">
-  <div class="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 py-5 sm:px-6 sm:py-8">
-    <header class="mb-6 flex items-center justify-between gap-4">
-      <div class="flex min-w-0 items-center gap-3.5">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl converza-card text-primary" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 3h5v5"/>
-            <path d="M8 3H3v5"/>
-            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
-            <path d="m15 9 6-6"/>
-          </svg>
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2.5">
-            <h1 class="text-xl font-semibold tracking-tight">Converza</h1>
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-400">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
-              On-device
-            </span>
+  <div class="flex min-h-dvh flex-col">
+    <!-- Full-width Top Navigation Bar -->
+    <header class="border-b border-base-content/10 bg-base-100/60 backdrop-blur-md">
+      <div class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl converza-card text-primary" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 3h5v5"/>
+              <path d="M8 3H3v5"/>
+              <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
+              <path d="m15 9 6-6"/>
+            </svg>
           </div>
-          <p class="mt-0.5 text-xs opacity-65">Fast, private format conversion over local Wi-Fi</p>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2.5">
+              <span class="text-lg font-semibold tracking-tight">Converza</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-400">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                On-device
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="hidden md:inline-block font-mono text-[11px] uppercase tracking-wider opacity-60">
+            No Cloud · Auto-Clean 1h
+          </span>
+          <button id="theme-toggle"
+                  type="button"
+                  class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] rounded-xl converza-card converza-interactive px-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  aria-label="Toggle light or dark theme">
+            <span class="theme-icon-light inline-flex items-center gap-1.5 text-xs font-medium">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+              </svg>
+              <span class="hidden sm:inline">Light</span>
+            </span>
+            <span class="theme-icon-dark inline-flex items-center gap-1.5 text-xs font-medium">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+              </svg>
+              <span class="hidden sm:inline">Dark</span>
+            </span>
+          </button>
         </div>
       </div>
-
-      <button id="theme-toggle"
-              type="button"
-              class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] rounded-xl converza-card converza-interactive px-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-              aria-label="Toggle light or dark theme">
-        <span class="theme-icon-light inline-flex items-center gap-1.5 text-xs font-medium">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"/>
-            <path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-          </svg>
-          <span class="hidden sm:inline">Light</span>
-        </span>
-        <span class="theme-icon-dark inline-flex items-center gap-1.5 text-xs font-medium">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-          </svg>
-          <span class="hidden sm:inline">Dark</span>
-        </span>
-      </button>
     </header>
 
-    <main class="flex-1 space-y-5">
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {% block content %}{% endblock %}
     </main>
 
-    <footer class="mt-10 border-t border-base-content/10 pt-4 text-xs opacity-65">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <span class="font-mono text-[11px] uppercase tracking-wider opacity-80">Known Limits</span>
-        <span>Sequential 1-job queue · Auto-deletes after 1h or restart</span>
+    <footer class="border-t border-base-content/10 bg-base-100/40">
+      <div class="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-4 text-xs opacity-65 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div>
+          <span class="font-mono text-[11px] uppercase tracking-wider opacity-85">Known Limits:</span>
+          <span>No Office/Markdown to PDF or mobi/azw3 ebooks. Large videos convert slowly on phone CPUs.</span>
+        </div>
+        <span class="font-mono text-[11px] uppercase tracking-wider opacity-75">Sequential 1-job queue · In-memory TTL 1h</span>
       </div>
-      <p class="mt-1.5 opacity-85">
-        No Word/Excel/PowerPoint or Markdown to PDF, and no mobi/azw3 ebooks. Large videos convert slowly on phone CPUs.
-      </p>
     </footer>
   </div>
 
