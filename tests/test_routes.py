@@ -119,7 +119,7 @@ class RoutesTests(unittest.TestCase):
         html = res.get_data(as_text=True)
         self.assertIn('Converza', html)
         self.assertIn('data-theme="converza-dark"', html)
-        self.assertIn('Max 500 MB', html)
+        self.assertIn('Up to 500 MB', html)
         self.assertIn('/static/css/app.css', html)
         self.assertIn('/static/js/htmx.min.js', html)
 

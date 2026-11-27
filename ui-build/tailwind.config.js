@@ -7,11 +7,11 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
-          'Inter',
-          'ui-sans-serif',
+          '"Segoe UI Variable"',
           'system-ui',
           '-apple-system',
-          'Segoe UI',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
           'Roboto',
           'sans-serif',
         ],
@@ -19,7 +19,6 @@ module.exports = {
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',
-          'Monaco',
           'Consolas',
           'monospace',
         ],

@@ -13,16 +13,16 @@
       </svg>
     </span>
     <span class="text-base font-semibold tracking-tight">Drop files anywhere to upload</span>
-    <span class="font-mono text-[11px] uppercase tracking-wider opacity-70">Files stay local on this device</span>
+    <span class="text-xs opacity-70">Files stay local on this device</span>
   </div>
 </div>
 
 <!-- Hero Header -->
-<section class="mb-6 flex flex-col gap-3 lg:mb-8 lg:flex-row lg:items-end lg:justify-between">
+<section class="mb-6 flex flex-col gap-3 lg:mb-7 lg:flex-row lg:items-end lg:justify-between">
   <div class="space-y-1.5">
-    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Convert files on your own hardware.</h1>
-    <p class="max-w-2xl text-sm opacity-70">
-      Drop video, audio, images, documents, or PDFs. Everything converts locally over Wi-Fi without accounts, ads, or cloud uploads.
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Convert files on your own hardware</h1>
+    <p class="max-w-2xl text-sm leading-relaxed opacity-75 sm:text-[15px]">
+      Drop video, audio, images, documents, or PDFs. Everything runs locally over Wi-Fi with no accounts or cloud uploads.
     </p>
   </div>
   <div class="flex flex-wrap items-center gap-2 lg:hidden">
@@ -31,7 +31,7 @@
             id="toggle-options-btn"
             aria-expanded="false"
             aria-controls="conversion-options"
-            class="btn btn-ghost btn-sm min-h-[44px] gap-2 rounded-xl converza-card px-3.5 font-mono text-[11px] uppercase tracking-wider">
+            class="btn btn-ghost btn-sm min-h-[44px] gap-2 rounded-xl converza-card px-3.5 text-xs font-medium">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>
       </svg>
@@ -66,17 +66,17 @@
             </svg>
           </div>
 
-          <div class="space-y-1">
-            <p class="text-base font-semibold tracking-tight">Drop files here to convert</p>
-            <p class="text-xs opacity-65">Tap to browse, drag anywhere on the page, or paste with <kbd class="rounded border border-base-content/20 bg-base-100 px-1.5 py-0.5 font-mono text-[10px]">Ctrl+V</kbd></p>
+          <div class="space-y-1.5">
+            <p class="text-lg font-semibold tracking-tight">Drop files here to convert</p>
+            <p class="text-sm opacity-70">Tap to browse, drag anywhere on the page, or paste with <kbd class="rounded border border-base-content/20 bg-base-100 px-1.5 py-0.5 font-mono text-[11px]">Ctrl+V</kbd></p>
           </div>
 
-          <span class="btn btn-primary btn-sm min-h-[42px] rounded-lg px-6 font-medium converza-interactive pointer-events-none">
+          <span class="btn btn-primary btn-sm min-h-[44px] rounded-lg px-6 text-sm font-medium converza-interactive pointer-events-none">
             Choose files
           </span>
 
-          <div class="flex flex-wrap items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-wider opacity-65 tabular-nums">
-            <span class="rounded-md bg-base-content/5 px-2.5 py-1">Max {{ max_upload_mb }} MB</span>
+          <div class="flex flex-wrap items-center justify-center gap-2 text-xs opacity-65 tabular-nums">
+            <span class="rounded-md bg-base-content/5 px-2.5 py-1">Up to {{ max_upload_mb }} MB</span>
             <span class="rounded-md bg-base-content/5 px-2.5 py-1">Batch ZIP</span>
             <span class="rounded-md bg-base-content/5 px-2.5 py-1">OCR &amp; Audio Extract</span>
           </div>
@@ -94,7 +94,7 @@
 
     <section id="bulk-bar" class="hidden converza-card rounded-xl p-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <span id="bulk-summary" class="font-mono text-xs uppercase tracking-wider opacity-75 tabular-nums">0 files</span>
+        <span id="bulk-summary" class="text-sm font-medium opacity-80 tabular-nums">0 files</span>
         <div class="flex flex-wrap items-center gap-2">
           <button id="convert-all-btn"
                   type="button"
@@ -123,16 +123,16 @@
 
     <section id="files" class="space-y-3" aria-label="Uploaded files"></section>
 
-    <!-- Supported Formats Matrix (visible on desktop when queue is clean, always scannable) -->
+    <!-- Supported Formats Matrix -->
     {% if capabilities %}
     <section id="supported-formats-panel" class="converza-card rounded-2xl p-4 sm:p-5">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h2 class="font-mono text-[11px] uppercase tracking-wider opacity-75">Supported formats on this device</h2>
-        <span class="font-mono text-[11px] opacity-55 tabular-nums">{{ capabilities | length }} active categories</span>
+      <div class="mb-3.5 flex items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold tracking-tight">Supported formats on this device</h2>
+        <span class="text-xs opacity-60 tabular-nums">{{ capabilities | length }} active categories</span>
       </div>
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {% for item in capabilities %}
-        <div class="rounded-xl border border-base-content/10 bg-base-200/50 p-3">
+        <div class="rounded-xl border border-base-content/10 bg-base-200/50 p-3.5">
           <div class="mb-1.5 flex items-center gap-2">
             {% if item.category == 'video' %}
             <span class="h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>
@@ -145,10 +145,10 @@
             {% else %}
             <span class="h-2 w-2 rounded-full bg-rose-400" aria-hidden="true"></span>
             {% endif %}
-            <span class="font-mono text-xs font-semibold uppercase tracking-wider">{{ item.category }}</span>
+            <span class="text-sm font-semibold capitalize">{{ item.category }}</span>
           </div>
-          <p class="font-mono text-[11px] opacity-65">{{ item.inputs | join(', ') }}</p>
-          <p class="mt-1.5 text-xs opacity-90">→ {{ item.targets | join(', ') }}</p>
+          <p class="font-mono text-xs opacity-65">{{ item.inputs | join(', ') }}</p>
+          <p class="mt-1.5 text-xs font-medium opacity-90">→ {{ item.targets | join(', ') }}</p>
         </div>
         {% endfor %}
       </div>
@@ -160,15 +160,15 @@
   <aside class="space-y-4 lg:col-span-4">
     {% if tools.ffmpeg or tools.magick or tools.tesseract %}
     <section id="conversion-options" class="hidden lg:block converza-card rounded-2xl p-4 sm:p-5">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h2 class="font-mono text-[11px] uppercase tracking-wider opacity-80">Conversion options</h2>
-        <button type="button" id="reset-options-btn" class="font-mono text-[10px] uppercase tracking-wider text-primary hover:underline">Reset</button>
+      <div class="mb-3.5 flex items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold tracking-tight">Conversion options</h2>
+        <button type="button" id="reset-options-btn" class="text-xs font-medium text-primary hover:underline">Reset</button>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-3.5">
         {% if tools.ffmpeg %}
         <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-65">Video max height</span>
-          <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-xs">
+          <span class="text-[13px] font-medium opacity-75">Video resolution</span>
+          <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Original</option>
             <option value="1080">1080p</option>
             <option value="720">720p (Recommended)</option>
@@ -176,8 +176,8 @@
           </select>
         </label>
         <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-65">Audio bitrate</span>
-          <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-xs">
+          <span class="text-[13px] font-medium opacity-75">Audio bitrate</span>
+          <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Default</option>
             <option value="320k">320 kbps</option>
             <option value="192k">192 kbps</option>
@@ -188,8 +188,8 @@
         {% endif %}
         {% if tools.magick %}
         <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-65">JPG / WebP quality</span>
-          <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-xs">
+          <span class="text-[13px] font-medium opacity-75">JPG / WebP quality</span>
+          <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Default</option>
             <option value="95">95 (High)</option>
             <option value="85">85 (Balanced)</option>
@@ -199,8 +199,8 @@
         {% endif %}
         {% if tools.tesseract %}
         <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[11px] uppercase tracking-wider opacity-65">OCR language</span>
-          <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-xs">
+          <span class="text-[13px] font-medium opacity-75">OCR language</span>
+          <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
             <option value="">Default (eng)</option>
             {% for lang in tools.ocr_langs %}
             <option value="{{ lang }}">{{ lang }}</option>
@@ -213,27 +213,27 @@
     {% endif %}
 
     <section class="converza-card rounded-2xl p-4 sm:p-5">
-      <h2 class="mb-3 font-mono text-[11px] uppercase tracking-wider opacity-80">Device engines</h2>
-      <ul class="space-y-2 text-xs">
+      <h2 class="mb-3 text-sm font-semibold tracking-tight">Device engines</h2>
+      <ul class="space-y-2.5 text-[13px]">
         <li class="flex items-center justify-between">
-          <span class="opacity-75">FFmpeg (Video / Audio)</span>
-          <span class="font-mono text-[11px] {% if tools.ffmpeg %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.ffmpeg %}Ready{% else %}Missing{% endif %}</span>
+          <span class="opacity-80">FFmpeg (Video &amp; Audio)</span>
+          <span class="text-xs font-medium {% if tools.ffmpeg %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.ffmpeg %}Ready{% else %}Missing{% endif %}</span>
         </li>
         <li class="flex items-center justify-between">
-          <span class="opacity-75">ImageMagick (Images)</span>
-          <span class="font-mono text-[11px] {% if tools.magick %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.magick %}Ready{% else %}Missing{% endif %}</span>
+          <span class="opacity-80">ImageMagick (Images)</span>
+          <span class="text-xs font-medium {% if tools.magick %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.magick %}Ready{% else %}Missing{% endif %}</span>
         </li>
         <li class="flex items-center justify-between">
-          <span class="opacity-75">Pandoc (Documents)</span>
-          <span class="font-mono text-[11px] {% if tools.pandoc %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.pandoc %}Ready{% else %}Missing{% endif %}</span>
+          <span class="opacity-80">Pandoc (Documents)</span>
+          <span class="text-xs font-medium {% if tools.pandoc %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.pandoc %}Ready{% else %}Missing{% endif %}</span>
         </li>
         <li class="flex items-center justify-between">
-          <span class="opacity-75">Poppler (PDF)</span>
-          <span class="font-mono text-[11px] {% if tools.pdftoppm or tools.pdftotext %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.pdftoppm or tools.pdftotext %}Ready{% else %}Missing{% endif %}</span>
+          <span class="opacity-80">Poppler (PDF)</span>
+          <span class="text-xs font-medium {% if tools.pdftoppm or tools.pdftotext %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.pdftoppm or tools.pdftotext %}Ready{% else %}Missing{% endif %}</span>
         </li>
         <li class="flex items-center justify-between">
-          <span class="opacity-75">Tesseract (OCR)</span>
-          <span class="font-mono text-[11px] {% if tools.tesseract %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.tesseract %}Ready{% else %}Missing{% endif %}</span>
+          <span class="opacity-80">Tesseract (OCR)</span>
+          <span class="text-xs font-medium {% if tools.tesseract %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.tesseract %}Ready{% else %}Missing{% endif %}</span>
         </li>
       </ul>
     </section>

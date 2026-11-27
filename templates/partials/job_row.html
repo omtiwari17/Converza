@@ -44,20 +44,20 @@
 
       <div class="min-w-0 flex-1">
         <p data-job-name class="converza-filename text-sm font-medium leading-snug">{{ job.name }}</p>
-        <div class="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider opacity-70 tabular-nums">
-          <span>{{ job.category }}</span>
+        <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs opacity-70 tabular-nums">
+          <span class="capitalize">{{ job.category }}</span>
           <span>·</span>
           <span>{{ job.size | format_size }}</span>
           {% if job.target %}
           <span>→</span>
-          <span class="text-base-content">{{ target_label(job.target) }}</span>
+          <span class="font-medium text-base-content">{{ target_label(job.target) }}</span>
           {% endif %}
           {% if job.status == 'done' %}
-          <span class="badge badge-success badge-xs font-mono uppercase">Done</span>
+          <span class="badge badge-success badge-xs font-medium">Done</span>
           {% elif job.status == 'error' %}
-          <span class="badge badge-error badge-xs font-mono uppercase">Error</span>
+          <span class="badge badge-error badge-xs font-medium">Error</span>
           {% elif job.status in ('queued', 'running') %}
-          <span class="badge badge-info badge-xs font-mono uppercase">{{ job.status }}</span>
+          <span class="badge badge-info badge-xs font-medium capitalize">{{ job.status }}</span>
           {% endif %}
         </div>
       </div>
@@ -151,7 +151,7 @@
 
   {% if job.status in ('queued', 'running') %}
   <div class="mt-3 space-y-1.5">
-    <div class="flex items-center justify-between font-mono text-[11px] uppercase tracking-wider opacity-70">
+    <div class="flex items-center justify-between text-xs opacity-75">
       <span>{% if job.status == 'queued' %}Queued{% else %}Converting{% endif %} to {{ target_label(job.target) }}</span>
     </div>
     <progress class="progress progress-primary h-2 w-full" aria-label="Converting {{ job.name }}"></progress>
