@@ -33,8 +33,18 @@ class RegistryTests(unittest.TestCase):
                 return r'C:\Windows\system32\convert.exe'
             return None
 
-        fake_proc = mock.Mock(stdout='Invalid parameter - -version', stderr='')
+        fake_proc = mock.Mock(returncode=1, stdout='Invalid parameter - -version', stderr='')
         with mock.patch('registry.shutil.which', side_effect=fake_which), \
+             mock.patch('registry.subprocess.run', return_value=fake_proc):
+            self.assertIsNone(registry._find_magick())
+
+    def test_broken_magick_linker_error_rejected(self):
+        fake_proc = mock.Mock(
+            returncode=127,
+            stdout='',
+            stderr='CANNOT LINK EXECUTABLE "magick": cannot locate symbol "XML_GetCurrentLineNumber64"',
+        )
+        with mock.patch('registry.shutil.which', side_effect=lambda n: '/usr/bin/magick' if n == 'magick' else None), \
              mock.patch('registry.subprocess.run', return_value=fake_proc):
             self.assertIsNone(registry._find_magick())
 

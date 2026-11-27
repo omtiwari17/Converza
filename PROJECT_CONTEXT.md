@@ -46,14 +46,17 @@ Converza is a lightweight, private, self-hosted web file converter (video, audio
 - **Phase 6 (Hardening)**: Added strict 32-hex `is_valid_job_id()` + `OUTPUT_DIR` `is_relative_to()` path containment checks, `delete_job()` cleanup on failed upload write, `X-Content-Type-Options: nosniff` and `X-Frame-Options: SAMEORIGIN` headers, optional `CONVERZA_PASSWORD` HTTP Basic gate (leaving `/healthz` open), and `tests/test_hardening.py`.
 - **UI/UX Polish, Features & Docs**: Collapsed idle `.htmx-indicator`, fixed `border-base-content/15` badge class, smart non-same `default_target`, `→ Target` badge, `DELETE /jobs/<id>` removal + `Clear done` + `Clear all`, window-wide drag-and-drop overlay + clipboard paste (`Ctrl+V`), collapsed **Conversion options** drawer (`video_height`, `audio_bitrate`, `image_quality`, `ocr_lang` strictly whitelisted in `registry.py`), `GET /jobs/<id>/text` inline preview + Copy button with LAN HTTP `execCommand` fallback (`33/33` tests passing), updated `README.md`, and pushed `main` to `https://github.com/omtiwari17/Converza`.
 
+- **Phase 7 (Termux Verification — Partial Live Pass + Fix)**: Tested live over Wi-Fi (`http://192.168.1.50:5000`): `ffmpeg` (`wav -> mp3`), `tesseract` (`png -> ocr_txt`), `pandoc` (`md -> html`), `pdftotext` (`pdf -> txt`), multi-page `pdftoppm` (`pdf -> png` ZIP), `/convert-all`, and `/zip` all succeeded end-to-end. Caught Termux `magick` linker failure (`CANNOT LINK EXECUTABLE "magick": cannot locate symbol "XML_GetCurrentLineNumber64" referenced by libgvc.so`) when `libexpat` wasn't upgraded; hardened `_find_magick()` via `_is_working_magick()` so broken binaries are hidden rather than offering failing targets (`34/34` tests passing).
+
 ## Current Work
-- Phases 1–6 and documentation complete and pushed to `origin/main`; ready for Phase 7 (Termux deployment & 30-minute phone stability test on Android).
+- Awaiting `pkg upgrade -y` (to update `libexpat`) + `git pull` on Termux phone, then final `magick` + video conversion + 30-min idle verification.
 
 ## Pending Tasks
-- Phase 7: Install packages in Termux (`python`, `ffmpeg`, `imagemagick`, `pandoc`, `poppler`, `tesseract`, `tmux`, `git`), run `waitress-serve` inside `tmux` with `termux-wake-lock`, verify all 5 converter categories live on Android, and confirm 30-minute background stability.
+- On Termux phone: run `pkg update && pkg upgrade -y && magick -version`, `git pull`, restart `waitress-serve` inside `tmux` with `termux-wake-lock`, verify `image -> webp` and `video -> mp4/mp3`, and confirm 30-minute screen-off stability.
 
 ## Known Bugs / Environmental Notes
-- On Windows dev PC: `tesseract` and `pdftotext` ran live; `ffmpeg`, `magick`, `pandoc`, and `pdftoppm` are not installed on Windows (verified via AST/unit/mocked tests; live binary execution on Android awaits Phase 7 Termux deployment).
+- On Termux: if `imagemagick` is installed without running `pkg upgrade` first, `libgvc.so` can fail to link `XML_GetCurrentLineNumber64` (fixed by `pkg update && pkg upgrade -y` to update `libexpat`); `_is_working_magick()` ensures broken `magick` binaries do not expose broken UI options.
+- On Windows dev PC: `tesseract` and `pdftotext` ran live; `ffmpeg`, `magick`, `pandoc`, and `pdftoppm` are not installed on Windows.
 - Windows `C:\Windows\system32\convert.exe` is rejected by `_find_magick()`.
 - Live Chrome DevTools visual inspection (`chrome_devtools` MCP) was blocked on the dev PC because Chrome remote debugging (`DevToolsActivePort`) was not enabled.
 

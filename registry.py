@@ -58,26 +58,29 @@ def detect_category(ext: str) -> str | None:
     return None
 
 
-def _find_magick() -> str | None:
-    """Find ImageMagick binary, avoiding Windows system32 convert.exe collision."""
-    magick = shutil.which('magick')
-    if magick:
-        return magick
-    convert = shutil.which('convert')
-    if not convert:
-        return None
+def _is_working_magick(candidate: str | None) -> bool:
+    """Return True if candidate exists and runs '-version' as ImageMagick."""
+    if not candidate:
+        return False
     try:
         res = subprocess.run(
-            [convert, '-version'],
+            [candidate, '-version'],
             capture_output=True,
             text=True,
             timeout=5,
         )
         output = f'{res.stdout}\n{res.stderr}'
-        if 'ImageMagick' in output:
-            return convert
+        return res.returncode == 0 and 'ImageMagick' in output
     except (OSError, subprocess.SubprocessError):
-        return None
+        return False
+
+
+def _find_magick() -> str | None:
+    """Find a runnable ImageMagick binary, avoiding broken links or Windows convert.exe."""
+    for name in ('magick', 'convert'):
+        candidate = shutil.which(name)
+        if _is_working_magick(candidate):
+            return candidate
     return None
 
 
