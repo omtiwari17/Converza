@@ -1,275 +1,77 @@
 {% extends 'base.html' %}
+{% from '_icons.html' import icon -%}
 
 {% block content %}
-<div id="drop-overlay"
-     class="pointer-events-none fixed inset-0 z-50 hidden items-center justify-center bg-base-200/85 p-6 backdrop-blur-sm"
-     aria-hidden="true">
-  <div class="flex max-w-sm flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary px-8 py-8 text-center converza-card">
-    <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="17 8 12 3 7 8"/>
-        <line x1="12" x2="12" y1="3" y2="15"/>
-      </svg>
-    </span>
-    <span class="text-base font-semibold tracking-tight">Drop files anywhere to upload</span>
-    <span class="text-xs opacity-70">Files stay local on this device</span>
-  </div>
-</div>
-
-<!-- Hero Header -->
-<section class="mb-6 flex flex-col gap-3 lg:mb-7 lg:flex-row lg:items-end lg:justify-between">
-  <div class="space-y-1.5">
-    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Convert files on your own hardware</h1>
-    <p class="max-w-2xl text-sm leading-relaxed opacity-75 sm:text-[15px]">
-      Drop video, audio, images, documents, or PDFs. Everything runs locally over Wi-Fi with no accounts or cloud uploads.
-    </p>
-  </div>
-  <div class="flex flex-wrap items-center gap-2 lg:hidden">
-    {% if tools.ffmpeg or tools.magick or tools.tesseract %}
-    <button type="button"
-            id="toggle-options-btn"
-            aria-expanded="false"
-            aria-controls="conversion-options"
-            class="btn btn-ghost btn-sm min-h-[44px] gap-2 rounded-xl converza-card px-3.5 text-xs font-medium">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>
-      </svg>
-      <span>Options</span>
-      <span id="options-active-dot" class="hidden h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true"></span>
-    </button>
-    {% endif %}
-  </div>
+<section id="intro" class="{% if jobs %}hidden{% endif %} mb-4 space-y-1">
+  <h1 class="text-[24px] font-semibold leading-tight">Convert any file</h1>
+  <p class="text-[14px] text-muted">Private, runs on this device.</p>
 </section>
 
-<!-- Responsive Desktop 2-Column Workspace (8 + 4) -->
-<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-  <!-- Main Left Column: Dropzone + Queue + Supported Formats -->
-  <div class="space-y-5 lg:col-span-8">
-    <section class="converza-card rounded-2xl p-3 sm:p-4">
-      <form id="upload-form"
-            hx-post="/upload"
-            hx-target="#files"
-            hx-swap="beforeend"
-            hx-encoding="multipart/form-data"
-            hx-trigger="change from:#picker"
-            hx-indicator="#upload-status">
-        <input id="picker" type="file" name="files" multiple class="sr-only">
-        <label id="dropzone"
-               for="picker"
-               class="converza-dropzone group relative flex min-h-[210px] w-full cursor-pointer flex-col items-center justify-center gap-4 rounded-xl px-6 py-8 text-center focus-within:ring-2 focus-within:ring-primary/60">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" x2="12" y1="3" y2="15"/>
-            </svg>
-          </div>
+<form id="upload-form"
+      hx-post="/upload"
+      hx-target="#file-list"
+      hx-swap="beforeend"
+      hx-encoding="multipart/form-data"
+      hx-trigger="change from:#picker"
+      hx-indicator="#upload-status">
+  <input id="picker" type="file" name="files" multiple class="hidden">
 
-          <div class="space-y-1.5">
-            <p class="text-lg font-semibold tracking-tight">Drop files here to convert</p>
-            <p class="text-sm opacity-70">Tap to browse, drag anywhere on the page, or paste with <kbd class="rounded border border-base-content/20 bg-base-100 px-1.5 py-0.5 font-mono text-[11px]">Ctrl+V</kbd></p>
-          </div>
+  <label id="dropzone"
+         for="picker"
+         class="{% if jobs %}hidden{% else %}flex{% endif %} cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-base-300 bg-base-200 px-4 py-8 text-center hover:border-primary">
+    <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary" aria-hidden="true">
+      {{ icon('upload', 24) }}
+    </span>
+    <span class="text-[18px] font-semibold">
+      <span class="dropzone-label-idle">Drop files here to convert</span>
+      <span class="dropzone-label-drag">Release to add</span>
+    </span>
+    <span class="btn btn-primary h-12 min-h-[48px] min-w-[200px] pointer-events-none text-base font-medium">
+      Choose files
+    </span>
+    <span class="text-[12px] text-muted">
+      Up to {{ max_upload_mb }} MB per file<span class="paste-hint"> · or paste (Ctrl+V)</span>
+    </span>
+  </label>
 
-          <span class="btn btn-primary btn-sm min-h-[44px] rounded-lg px-6 text-sm font-medium converza-interactive pointer-events-none">
-            Choose files
-          </span>
+  <label id="slim-dropzone"
+         for="picker"
+         class="{% if not jobs %}hidden{% else %}flex{% endif %} h-14 min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-base-300 bg-base-200 px-4 text-base font-medium hover:border-primary">
+    {{ icon('plus', 20) }}
+    <span class="dropzone-label-idle">Add more files</span>
+    <span class="dropzone-label-drag">Release to add</span>
+  </label>
 
-          <div class="flex flex-wrap items-center justify-center gap-2 text-xs opacity-65 tabular-nums">
-            <span class="rounded-md bg-base-content/5 px-2.5 py-1">Up to {{ max_upload_mb }} MB</span>
-            <span class="rounded-md bg-base-content/5 px-2.5 py-1">Batch ZIP</span>
-            <span class="rounded-md bg-base-content/5 px-2.5 py-1">OCR &amp; Audio Extract</span>
-          </div>
-        </label>
-
-        <div id="upload-status" class="htmx-indicator mt-3 items-center justify-between gap-3 rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
-          <div class="flex items-center gap-2.5">
-            <progress class="progress progress-primary h-1.5 w-28" aria-label="Uploading files"></progress>
-            <span class="font-medium">Uploading files...</span>
-          </div>
-          <button type="button"
-                  id="cancel-upload-btn"
-                  class="btn btn-ghost btn-xs min-h-[32px] rounded-md px-2.5 text-xs font-medium text-base-content hover:bg-base-content/10">
-            Cancel
-          </button>
-        </div>
-      </form>
-    </section>
-
-    <div id="live-status" class="sr-only" role="status" aria-live="polite"></div>
-    <div id="upload-error" class="space-y-2"></div>
-
-    <section id="bulk-bar" class="hidden converza-card rounded-xl p-3">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <span id="bulk-summary" class="text-sm font-medium opacity-80 tabular-nums">0 files</span>
-        <div class="flex flex-wrap items-center gap-2">
-          <button id="convert-all-btn"
-                  type="button"
-                  class="btn btn-primary btn-sm min-h-[44px] px-4 converza-interactive">
-            Convert all
-          </button>
-          <a id="download-zip-btn"
-             href="#"
-             class="btn btn-outline btn-sm min-h-[44px] px-4 btn-disabled converza-interactive"
-             aria-disabled="true">
-            Download all (ZIP)
-          </a>
-          <button id="clear-done-btn"
-                  type="button"
-                  class="btn btn-ghost btn-sm min-h-[44px] px-3 hidden converza-interactive">
-            Clear done
-          </button>
-          <button id="clear-all-btn"
-                  type="button"
-                  class="btn btn-ghost btn-sm min-h-[44px] px-3 converza-interactive">
-            Clear all
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section id="files" class="space-y-3" aria-label="Uploaded files"></section>
-
-    <!-- Supported Formats Matrix -->
-    {% if capabilities %}
-    <section id="supported-formats-panel" class="converza-card rounded-2xl p-4 sm:p-5">
-      <div class="mb-3.5 flex items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold tracking-tight">Supported formats on this device</h2>
-        <span class="text-xs opacity-60 tabular-nums">{{ capabilities | length }} active categories</span>
-      </div>
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {% for item in capabilities %}
-        <div class="rounded-xl border border-base-content/10 bg-base-200/50 p-3.5">
-          <div class="mb-1.5 flex items-center gap-2">
-            {% if item.category == 'video' %}
-            <span class="h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>
-            {% elif item.category == 'audio' %}
-            <span class="h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true"></span>
-            {% elif item.category == 'image' %}
-            <span class="h-2 w-2 rounded-full bg-amber-400" aria-hidden="true"></span>
-            {% elif item.category == 'document' %}
-            <span class="h-2 w-2 rounded-full bg-indigo-400" aria-hidden="true"></span>
-            {% else %}
-            <span class="h-2 w-2 rounded-full bg-rose-400" aria-hidden="true"></span>
-            {% endif %}
-            <span class="text-sm font-semibold">{% if item.category == 'pdf' %}PDF{% else %}{{ item.category | capitalize }}{% endif %}</span>
-          </div>
-          <p class="font-mono text-xs opacity-65">{{ item.inputs | join(', ') }}</p>
-          <p class="mt-1.5 text-xs font-medium opacity-90">→ {{ item.targets | join(', ') }}</p>
-        </div>
-        {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-  </div>
-
-  <!-- Right Sidebar on Desktop: Contextual Conversion Options + Engine Status -->
-  <aside class="space-y-4 lg:col-span-4">
-    {% if tools.ffmpeg or tools.magick or tools.tesseract %}
-    <section id="conversion-options" class="hidden lg:block converza-card rounded-2xl p-4 sm:p-5">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold tracking-tight">Conversion options</h2>
-        <button type="button" id="reset-options-btn" class="hidden text-xs font-medium text-primary hover:underline">Reset</button>
-      </div>
-      <p id="options-empty-hint" class="text-xs leading-relaxed opacity-65">
-        Relevant settings appear automatically when you add video, audio, or image files.
-      </p>
-      <div id="options-fields" class="hidden space-y-3.5">
-        {% if tools.ffmpeg %}
-        <label data-option-group="video_height" class="hidden flex-col gap-1.5">
-          <span class="text-[13px] font-medium opacity-75">Video resolution</span>
-          <select name="video_height" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
-            <option value="">Original</option>
-            <option value="1080">1080p</option>
-            <option value="720">720p (Recommended)</option>
-            <option value="480">480p (Fastest)</option>
-          </select>
-        </label>
-        <label data-option-group="audio_bitrate" class="hidden flex-col gap-1.5">
-          <span class="text-[13px] font-medium opacity-75">Audio bitrate</span>
-          <select name="audio_bitrate" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
-            <option value="">Default</option>
-            <option value="320k">320 kbps</option>
-            <option value="192k">192 kbps</option>
-            <option value="128k">128 kbps</option>
-            <option value="96k">96 kbps</option>
-          </select>
-        </label>
-        {% endif %}
-        {% if tools.magick %}
-        <label data-option-group="image_quality" class="hidden flex-col gap-1.5">
-          <span class="text-[13px] font-medium opacity-75">JPG / WebP quality</span>
-          <select name="image_quality" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
-            <option value="">Default</option>
-            <option value="95">95 (High)</option>
-            <option value="85">85 (Balanced)</option>
-            <option value="70">70 (Compact)</option>
-          </select>
-        </label>
-        {% endif %}
-        {% if tools.tesseract %}
-        <label data-option-group="ocr_lang" class="hidden flex-col gap-1.5">
-          <span class="text-[13px] font-medium opacity-75">OCR language</span>
-          <select name="ocr_lang" class="select select-bordered select-sm min-h-[44px] bg-base-200 text-sm">
-            <option value="">Default (eng)</option>
-            {% for lang in tools.ocr_langs %}
-            <option value="{{ lang }}">{{ lang }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        {% endif %}
-      </div>
-    </section>
-    {% endif %}
-
-    <section class="converza-card rounded-2xl p-4 sm:p-5">
-      <h2 class="mb-3 text-sm font-semibold tracking-tight">Device engines</h2>
-      <ul class="space-y-2.5 text-[13px]">
-        <li class="flex items-center justify-between">
-          <span class="opacity-80">FFmpeg (Video &amp; Audio)</span>
-          <span class="text-xs font-medium {% if tools.ffmpeg %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.ffmpeg %}Ready{% else %}Missing{% endif %}</span>
-        </li>
-        <li class="flex items-center justify-between">
-          <span class="opacity-80">ImageMagick (Images)</span>
-          <span class="text-xs font-medium {% if tools.magick %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.magick %}Ready{% else %}Missing{% endif %}</span>
-        </li>
-        <li class="flex items-center justify-between">
-          <span class="opacity-80">Pandoc (Documents)</span>
-          <span class="text-xs font-medium {% if tools.pandoc %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.pandoc %}Ready{% else %}Missing{% endif %}</span>
-        </li>
-        <li class="flex items-center justify-between">
-          <span class="opacity-80">Poppler (PDF)</span>
-          <span class="text-xs font-medium {% if tools.pdftoppm or tools.pdftotext %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.pdftoppm or tools.pdftotext %}Ready{% else %}Missing{% endif %}</span>
-        </li>
-        <li class="flex items-center justify-between">
-          <span class="opacity-80">Tesseract (OCR)</span>
-          <span class="text-xs font-medium {% if tools.tesseract %}text-emerald-400{% else %}opacity-45{% endif %}">{% if tools.tesseract %}Ready{% else %}Missing{% endif %}</span>
-        </li>
-      </ul>
-    </section>
-  </aside>
-</div>
-
-<dialog id="preview-modal"
-        closedby="any"
-        aria-labelledby="preview-modal-title"
-        class="m-auto w-[95vw] max-w-5xl rounded-2xl border border-base-content/15 bg-base-100 p-0 text-base-content shadow-2xl">
-  <div class="flex items-center justify-between gap-3 border-b border-base-content/10 px-4 py-3">
-    <h2 id="preview-modal-title" class="truncate text-sm font-semibold">Preview</h2>
-    <div class="flex shrink-0 items-center gap-2">
-      <a id="preview-modal-download"
-         href="#"
-         download
-         class="btn btn-primary btn-xs min-h-[36px] gap-1.5 px-3 text-xs font-medium">
-        Download
-      </a>
-      <form method="dialog">
-        <button type="submit" class="btn btn-ghost btn-xs min-h-[36px] px-3 text-xs font-medium">Close</button>
-      </form>
+  <div id="upload-status" class="htmx-indicator mt-3 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200 px-4 py-3 text-sm">
+    <div class="flex items-center gap-2.5">
+      {{ icon('loader', 18, 'motion-safe:animate-spin text-primary') }}
+      <span>Uploading...</span>
     </div>
+    <button type="button" id="cancel-upload-btn" class="btn btn-ghost btn-sm min-h-[36px] text-sm">
+      Cancel
+    </button>
   </div>
-  <div id="preview-modal-body" class="flex max-h-[82dvh] items-center justify-center overflow-auto bg-base-200/70 p-3 sm:p-4"></div>
-</dialog>
+</form>
+
+<section id="file-list" class="mt-3 space-y-3" aria-label="Files">
+  {% for job in jobs %}
+    {% include 'partials/file_card.html' %}
+  {% endfor %}
+</section>
+
+<footer id="footer-line" class="{% if bulk.visible %}hidden{% endif %} mt-6 flex flex-col items-center gap-1 text-center text-[14px] text-muted">
+  <p>Files delete automatically after 1 hour</p>
+  <button type="button"
+          id="how-it-works-btn"
+          hx-get="/info"
+          hx-target="#info-body"
+          hx-swap="innerHTML"
+          class="btn btn-link btn-sm min-h-[44px] text-[14px] font-medium text-primary no-underline hover:underline">
+    How it works
+  </button>
+</footer>
+
+{% include 'partials/bulk_bar.html' %}
 {% endblock %}
 
 {% block scripts %}
@@ -279,128 +81,45 @@
     var uploadForm = document.getElementById('upload-form');
     var cancelUploadBtn = document.getElementById('cancel-upload-btn');
     var dropzone = document.getElementById('dropzone');
-    var dropOverlay = document.getElementById('drop-overlay');
-    var filesEl = document.getElementById('files');
-    var bulkBar = document.getElementById('bulk-bar');
-    var bulkSummary = document.getElementById('bulk-summary');
-    var convertAllBtn = document.getElementById('convert-all-btn');
-    var downloadZipBtn = document.getElementById('download-zip-btn');
-    var clearDoneBtn = document.getElementById('clear-done-btn');
-    var clearAllBtn = document.getElementById('clear-all-btn');
-    var liveStatus = document.getElementById('live-status');
+    var slimDropzone = document.getElementById('slim-dropzone');
+    var introEl = document.getElementById('intro');
+    var fileListEl = document.getElementById('file-list');
+    var footerLine = document.getElementById('footer-line');
+    var infoModal = document.getElementById('info-modal');
+    var howBtn = document.getElementById('how-it-works-btn');
+    var toastArea = document.getElementById('toast-area');
     var dragDepth = 0;
 
-    var toggleOptsBtn = document.getElementById('toggle-options-btn');
-    var optsPanel = document.getElementById('conversion-options');
-    var optsDot = document.getElementById('options-active-dot');
-    var resetOptsBtn = document.getElementById('reset-options-btn');
-    var optsEmptyHint = document.getElementById('options-empty-hint');
-    var optsFields = document.getElementById('options-fields');
+    if (howBtn && infoModal && typeof infoModal.showModal === 'function') {
+      howBtn.addEventListener('click', function () {
+        infoModal.showModal();
+      });
+    }
 
     if (cancelUploadBtn && uploadForm) {
       cancelUploadBtn.addEventListener('click', function () {
-        if (typeof htmx !== 'undefined') {
-          htmx.trigger(uploadForm, 'htmx:abort');
-        }
+        if (typeof htmx !== 'undefined') htmx.trigger(uploadForm, 'htmx:abort');
         if (picker) picker.value = '';
       });
     }
 
-    if (toggleOptsBtn && optsPanel) {
-      toggleOptsBtn.addEventListener('click', function () {
-        var isHidden = optsPanel.classList.contains('hidden');
-        optsPanel.classList.toggle('hidden', !isHidden);
-        toggleOptsBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
-      });
-    }
-
-    function syncContextualOptions() {
-      if (!optsPanel || !filesEl) return;
-      var needed = {
-        video_height: false,
-        audio_bitrate: false,
-        image_quality: false,
-        ocr_lang: false
-      };
-      var rows = filesEl.querySelectorAll('[data-job-id]');
-      var hasActionable = false;
-
-      rows.forEach(function (row) {
-        var st = row.getAttribute('data-job-status');
-        if (st !== 'uploaded' && st !== 'error') return;
-        hasActionable = true;
-        var cat = row.getAttribute('data-job-category');
-        var sel = row.querySelector('select[name="target"]');
-        var tgt = sel ? sel.value : '';
-
-        if (cat === 'video') {
-          if (tgt === 'mp3' || tgt === 'm4a' || tgt === 'ogg') {
-            needed.audio_bitrate = true;
-          } else if (tgt !== 'wav') {
-            needed.video_height = true;
-          }
-        } else if (cat === 'audio') {
-          if (tgt === 'mp3' || tgt === 'm4a' || tgt === 'ogg') {
-            needed.audio_bitrate = true;
-          }
-        } else if (cat === 'image') {
-          if (tgt === 'ocr_txt') {
-            needed.ocr_lang = true;
-          } else if (tgt === 'jpg' || tgt === 'webp') {
-            needed.image_quality = true;
-          }
-        }
-      });
-
-      var anyVisible = false;
-      Object.keys(needed).forEach(function (key) {
-        var grp = optsPanel.querySelector('[data-option-group="' + key + '"]');
-        if (!grp) return;
-        var show = needed[key];
-        grp.classList.toggle('hidden', !show);
-        grp.classList.toggle('flex', show);
-        if (show) anyVisible = true;
-      });
-
-      if (optsFields) optsFields.classList.toggle('hidden', !anyVisible);
-      if (resetOptsBtn) resetOptsBtn.classList.toggle('hidden', !anyVisible);
-      if (optsEmptyHint) {
-        optsEmptyHint.classList.toggle('hidden', anyVisible);
-        if (!anyVisible) {
-          optsEmptyHint.textContent = hasActionable
-            ? 'No extra options are needed for your selected formats.'
-            : 'Relevant settings appear automatically when you add video, audio, or image files.';
-        }
+    function syncLayoutState() {
+      if (!fileListEl) return;
+      var count = fileListEl.querySelectorAll('[data-job-id]').length;
+      var hasFiles = count > 0;
+      if (introEl) introEl.classList.toggle('hidden', hasFiles);
+      if (dropzone) {
+        dropzone.classList.toggle('hidden', hasFiles);
+        dropzone.classList.toggle('flex', !hasFiles);
       }
-      if (toggleOptsBtn) {
-        toggleOptsBtn.classList.toggle('hidden', !anyVisible);
+      if (slimDropzone) {
+        slimDropzone.classList.toggle('hidden', !hasFiles);
+        slimDropzone.classList.toggle('flex', hasFiles);
       }
+      var bulkBar = document.getElementById('bulk-bar');
+      var bulkVisible = bulkBar && !bulkBar.classList.contains('hidden');
+      if (footerLine) footerLine.classList.toggle('hidden', !!bulkVisible);
     }
-
-    function syncOptionsDot() {
-      if (!optsPanel || !optsDot) return;
-      var active = false;
-      optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
-        if (sel.value) active = true;
-      });
-      optsDot.classList.toggle('hidden', !active);
-    }
-
-    if (optsPanel) {
-      optsPanel.addEventListener('change', syncOptionsDot);
-    }
-    if (filesEl) {
-      filesEl.addEventListener('change', syncContextualOptions);
-    }
-    if (resetOptsBtn && optsPanel) {
-      resetOptsBtn.addEventListener('click', function () {
-        optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
-          sel.value = '';
-        });
-        syncOptionsDot();
-      });
-    }
-    syncContextualOptions();
 
     function queueFiles(fileList) {
       if (!picker || !fileList || !fileList.length) return;
@@ -415,13 +134,8 @@
     }
 
     function setDragging(active) {
-      if (dropzone) {
-        dropzone.classList.toggle('border-primary', active);
-      }
-      if (dropOverlay) {
-        dropOverlay.classList.toggle('hidden', !active);
-        dropOverlay.classList.toggle('flex', active);
-      }
+      if (dropzone) dropzone.classList.toggle('dropzone-drag-over', active);
+      if (slimDropzone) slimDropzone.classList.toggle('dropzone-drag-over', active);
     }
 
     function hasFiles(ev) {
@@ -470,85 +184,47 @@
       }
     });
 
-    function syncBulkBar() {
-      if (!filesEl || !bulkBar) return;
-      var rows = filesEl.querySelectorAll('[data-job-id]');
-      var total = rows.length;
-      if (total < 2) {
-        bulkBar.classList.add('hidden');
-        return;
-      }
-      bulkBar.classList.remove('hidden');
-      var doneIds = [];
-      var actionable = 0;
-      var removable = 0;
-      rows.forEach(function (row) {
-        var st = row.getAttribute('data-job-status');
-        if (st === 'done') doneIds.push(row.getAttribute('data-job-id'));
-        if (st === 'uploaded' || st === 'error') actionable++;
-        if (st !== 'queued' && st !== 'running') removable++;
-      });
-      if (bulkSummary) {
-        bulkSummary.textContent = total + ' files · ' + doneIds.length + ' ready';
-      }
-      if (convertAllBtn) convertAllBtn.disabled = actionable === 0;
-      if (clearAllBtn) clearAllBtn.disabled = removable === 0;
-      if (clearDoneBtn) clearDoneBtn.classList.toggle('hidden', doneIds.length === 0);
-      if (downloadZipBtn) {
-        if (doneIds.length >= 1) {
-          downloadZipBtn.classList.remove('btn-disabled');
-          downloadZipBtn.removeAttribute('aria-disabled');
-          downloadZipBtn.href = '/zip?ids=' + encodeURIComponent(doneIds.join(','));
-        } else {
-          downloadZipBtn.classList.add('btn-disabled');
-          downloadZipBtn.setAttribute('aria-disabled', 'true');
-          downloadZipBtn.href = '#';
-        }
-      }
-    }
+    // Live slider numeric readout for image quality
+    document.addEventListener('input', function (ev) {
+      var range = ev.target;
+      if (!range || !range.matches || !range.matches('input[type="range"][data-range-output]')) return;
+      var out = document.getElementById(range.getAttribute('data-range-output'));
+      if (out) out.textContent = range.value;
+    });
 
-    if (convertAllBtn && filesEl) {
-      convertAllBtn.addEventListener('click', function () {
+    // Bulk Convert all button (delegated because #bulk-bar swaps OOB)
+    document.addEventListener('click', function (ev) {
+      var convertBtn = ev.target && ev.target.closest && ev.target.closest('#convert-all-btn');
+      if (convertBtn && fileListEl) {
         var payload = {};
         var count = 0;
-        var rows = filesEl.querySelectorAll('[data-job-id]');
-        rows.forEach(function (row) {
-          var status = row.getAttribute('data-job-status');
-          if (status !== 'uploaded' && status !== 'error') return;
-          var select = row.querySelector('select[name="target"]');
-          if (!select) return;
-          payload['target_' + row.getAttribute('data-job-id')] = select.value;
+        fileListEl.querySelectorAll('[data-job-id]').forEach(function (card) {
+          var st = card.getAttribute('data-job-status');
+          if (st !== 'uploaded' && st !== 'error') return;
+          var jid = card.getAttribute('data-job-id');
+          var checked = card.querySelector('input[type="radio"][name="target"]:checked');
+          if (!checked) return;
+          payload['target_' + jid] = checked.value;
+          card.querySelectorAll('[data-opt-name]').forEach(function (el) {
+            if (el.value) payload['opt_' + jid + '_' + el.getAttribute('data-opt-name')] = el.value;
+          });
           count++;
         });
-        if (optsPanel) {
-          optsPanel.querySelectorAll('select[name]').forEach(function (sel) {
-            if (sel.value) payload[sel.name] = sel.value;
-          });
+        if (count && typeof htmx !== 'undefined') {
+          htmx.ajax('POST', '/convert-all', { values: payload, swap: 'none' });
         }
-        if (!count || typeof htmx === 'undefined') return;
-        htmx.ajax('POST', '/convert-all', { values: payload, swap: 'none' });
-      });
-    }
+        return;
+      }
 
-    if (clearDoneBtn && filesEl) {
-      clearDoneBtn.addEventListener('click', function () {
-        filesEl.querySelectorAll('[data-job-status="done"] [data-remove-job]').forEach(function (btn) {
-          btn.click();
-        });
-      });
-    }
+      var previewTrigger = ev.target && ev.target.closest && ev.target.closest('[data-enlarge-src]');
+      if (previewTrigger) {
+        openLightbox(previewTrigger);
+      }
+    });
 
-    if (clearAllBtn && filesEl) {
-      clearAllBtn.addEventListener('click', function () {
-        filesEl.querySelectorAll('[data-remove-job]').forEach(function (btn) {
-          btn.click();
-        });
-      });
-    }
-
-    // Copy extracted text button with CommandEvent + LAN HTTP execCommand fallback
+    // Copy extracted text with LAN HTTP execCommand fallback
     var copyTimers = new WeakMap();
-    var lastCopyMessage = '';
+    var lastCopyMsg = '';
 
     function legacyCopy(text) {
       var prev = document.activeElement;
@@ -571,15 +247,13 @@
       clearTimeout(copyTimers.get(button));
       button.removeAttribute('data-copied');
       button.removeAttribute('data-failed');
-      var message = ok ? 'Copied' : 'Copy failed';
-      if (message === lastCopyMessage) message += '\u00A0';
-      lastCopyMessage = message;
+      var msg = ok ? 'Copied' : 'Copy failed';
+      if (msg === lastCopyMsg) msg += '\u00A0';
+      lastCopyMsg = msg;
       if (tip) tip.textContent = '';
       void button.offsetWidth;
       button.setAttribute(ok ? 'data-copied' : 'data-failed', '');
-      requestAnimationFrame(function () {
-        if (tip) tip.textContent = message;
-      });
+      requestAnimationFrame(function () { if (tip) tip.textContent = msg; });
       copyTimers.set(button, setTimeout(function () {
         button.removeAttribute('data-copied');
         button.removeAttribute('data-failed');
@@ -599,10 +273,7 @@
         reportCopy(button, true);
       } catch (e) {
         try {
-          if (legacyCopy(text)) {
-            reportCopy(button, true);
-            return;
-          }
+          if (legacyCopy(text)) { reportCopy(button, true); return; }
         } catch (err) {}
         reportCopy(button, false);
       }
@@ -610,9 +281,7 @@
 
     if ('CommandEvent' in window) {
       document.addEventListener('command', function (ev) {
-        if (ev.command && ev.command.indexOf('--copy') === 0) {
-          copyTargetText(ev.source, ev.target);
-        }
+        if (ev.command && ev.command.indexOf('--copy') === 0) copyTargetText(ev.source, ev.target);
       }, true);
     } else {
       document.addEventListener('click', function (ev) {
@@ -624,38 +293,27 @@
       });
     }
 
-    // Lightbox enlarge modal & inline preview close handler
-    var modal = document.getElementById('preview-modal');
+    // Lightbox modal & inline preview close
+    var previewModal = document.getElementById('preview-modal');
     var modalTitle = document.getElementById('preview-modal-title');
     var modalBody = document.getElementById('preview-modal-body');
     var modalDownload = document.getElementById('preview-modal-download');
 
-    document.addEventListener('click', function (ev) {
-      var closeBtn = ev.target && ev.target.closest && ev.target.closest('[data-close-preview]');
-      if (closeBtn) {
-        var box = document.getElementById(closeBtn.getAttribute('data-close-preview'));
-        if (box) box.innerHTML = '';
-        return;
-      }
-
-      var trigger = ev.target && ev.target.closest && ev.target.closest('[data-enlarge-src]');
-      if (!trigger || !modal || !modalBody) return;
-
+    function openLightbox(trigger) {
+      if (!previewModal || !modalBody) return;
       var src = trigger.getAttribute('data-enlarge-src');
       var kind = trigger.getAttribute('data-enlarge-kind');
       var title = trigger.getAttribute('data-enlarge-title') || 'Preview';
       var dl = trigger.getAttribute('data-enlarge-download') || '#';
-
       if (modalTitle) modalTitle.textContent = title;
       if (modalDownload) modalDownload.href = dl;
       modalBody.innerHTML = '';
-
       if (kind === 'html') {
         var frame = document.createElement('iframe');
         frame.setAttribute('sandbox', '');
         frame.src = src;
         frame.title = title;
-        frame.className = 'h-[76dvh] w-full rounded-lg border border-base-content/10 bg-white';
+        frame.className = 'h-[76dvh] w-full rounded-lg border border-base-300 bg-white';
         modalBody.appendChild(frame);
       } else {
         var img = document.createElement('img');
@@ -664,32 +322,42 @@
         img.className = 'max-h-[78dvh] w-auto max-w-full rounded-lg object-contain';
         modalBody.appendChild(img);
       }
+      if (typeof previewModal.showModal === 'function') previewModal.showModal();
+    }
 
-      if (typeof modal.showModal === 'function') {
-        modal.showModal();
+    document.addEventListener('click', function (ev) {
+      var closeBtn = ev.target && ev.target.closest && ev.target.closest('[data-close-preview]');
+      if (closeBtn) {
+        var box = document.getElementById(closeBtn.getAttribute('data-close-preview'));
+        if (box) box.innerHTML = '';
       }
     });
 
-    if (modal) {
-      modal.addEventListener('close', function () {
+    if (previewModal) {
+      previewModal.addEventListener('close', function () {
         if (modalBody) modalBody.innerHTML = '';
       });
     }
 
-    document.body.addEventListener('htmx:beforeRequest', function (ev) {
-      if (ev.detail && ev.detail.elt && ev.detail.elt.id === 'upload-form') {
-        var errBox = document.getElementById('upload-error');
-        if (errBox) errBox.innerHTML = '';
+    // Auto-hide toasts after 4 seconds (max 1 visible)
+    var toastTimer = null;
+    function scheduleToastClear() {
+      if (!toastArea) return;
+      var toasts = toastArea.querySelectorAll('[data-auto-toast]');
+      for (var i = 0; i < toasts.length - 1; i++) toasts[i].remove();
+      if (toasts.length) {
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          if (toastArea) toastArea.innerHTML = '';
+        }, 4000);
       }
-    });
+    }
 
     document.body.addEventListener('htmx:beforeSwap', function (ev) {
-      if (ev.detail && ev.detail.xhr && ev.detail.xhr.status === 413) {
-        var errBox = document.getElementById('upload-error');
-        if (errBox) {
-          errBox.innerHTML = ev.detail.serverResponse || '';
-        }
+      if (ev.detail && ev.detail.xhr && ev.detail.xhr.status === 413 && toastArea) {
+        toastArea.innerHTML = ev.detail.serverResponse || '';
         ev.detail.shouldSwap = false;
+        scheduleToastClear();
       }
     });
 
@@ -699,15 +367,12 @@
       }
     });
 
-    document.body.addEventListener('htmx:afterSettle', function (ev) {
-      syncBulkBar();
-      syncContextualOptions();
-      var target = ev.detail && ev.detail.target;
-      if (target && target.getAttribute && target.getAttribute('data-job-status') === 'done' && liveStatus) {
-        var nameEl = target.querySelector('[data-job-name]');
-        liveStatus.textContent = (nameEl ? nameEl.textContent : 'File') + ' conversion complete.';
-      }
+    document.body.addEventListener('htmx:afterSettle', function () {
+      syncLayoutState();
+      scheduleToastClear();
     });
+
+    syncLayoutState();
   })();
 </script>
 {% endblock %}

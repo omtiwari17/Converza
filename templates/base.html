@@ -1,3 +1,4 @@
+{% from '_icons.html' import icon -%}
 <!doctype html>
 <html lang="en" data-theme="converza-dark">
 <head>
@@ -7,83 +8,106 @@
   <script>
     (function () {
       try {
-        var saved = localStorage.getItem('converza-theme');
-        if (saved === 'light' || saved === 'dark') {
-          document.documentElement.setAttribute('data-theme', saved === 'light' ? 'converza-light' : 'converza-dark');
-          var meta = document.querySelector('meta[name="color-scheme"]');
-          if (meta) meta.content = saved;
+        var saved = localStorage.getItem('theme');
+        if (!saved) {
+          saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         }
+        var theme = saved === 'light' ? 'converza-light' : 'converza-dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.querySelector('meta[name="color-scheme"]');
+        if (meta) meta.content = saved === 'light' ? 'light' : 'dark';
       } catch (e) {}
     })();
   </script>
-  <title>{% block title %}Converza — Local File Converter{% endblock %}</title>
+  <title>{% block title %}Converza{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <script src="{{ url_for('static', filename='js/htmx.min.js') }}" defer></script>
 </head>
-<body class="bg-base-200 text-base-content converza-bg antialiased selection:bg-primary/20">
+<body class="bg-base-100 text-base-content antialiased">
   <div class="flex min-h-dvh flex-col">
-    <!-- Full-width Top Navigation Bar -->
-    <header class="border-b border-base-content/10 bg-base-100/60 backdrop-blur-md">
-      <div class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
-        <div class="flex min-w-0 items-center gap-3">
-          <img src="{{ url_for('static', filename='img/logo.svg') }}"
-               alt=""
-               width="40"
-               height="40"
-               class="h-10 w-10 shrink-0 rounded-xl shadow-sm"
-               aria-hidden="true">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2.5">
-              <span class="text-lg font-semibold tracking-tight">Converza</span>
-              <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
-                On-device
-              </span>
-            </div>
-          </div>
-        </div>
+    <header class="sticky top-0 z-30 border-b border-base-300 bg-base-100" style="padding-top: env(safe-area-inset-top, 0px);">
+      <div class="mx-auto flex h-14 w-full max-w-[640px] items-center justify-between px-4 md:px-6">
+        <a href="/" class="flex items-center gap-2.5 text-base-content no-underline">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+            <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+          </svg>
+          <span class="text-[18px] font-semibold tracking-tight">Converza</span>
+        </a>
 
-        <div class="flex items-center gap-3">
-          <span class="hidden md:inline-block text-xs font-medium opacity-60">
-            Private · Auto-cleans in 1h
-          </span>
-          <button id="theme-toggle"
-                  type="button"
-                  class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] rounded-xl converza-card converza-interactive px-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                  aria-label="Toggle light or dark theme">
-            <span class="theme-icon-light inline-flex items-center gap-1.5 text-xs font-medium">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4"/>
-                <path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-              </svg>
-              <span class="hidden sm:inline">Light</span>
-            </span>
-            <span class="theme-icon-dark inline-flex items-center gap-1.5 text-xs font-medium">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-              </svg>
-              <span class="hidden sm:inline">Dark</span>
-            </span>
+        <div class="flex items-center gap-1">
+          <button type="button"
+                  id="status-dot-btn"
+                  hx-get="/info"
+                  hx-target="#info-body"
+                  hx-swap="innerHTML"
+                  aria-label="Device status"
+                  class="btn btn-ghost btn-square h-11 min-h-[44px] w-11 min-w-[44px] rounded-xl">
+            <span class="h-2.5 w-2.5 rounded-full {% if all_ready %}bg-success{% else %}bg-warning{% endif %}" aria-hidden="true"></span>
+          </button>
+
+          <button type="button"
+                  id="theme-toggle"
+                  aria-label="Toggle theme"
+                  class="btn btn-ghost btn-square h-11 min-h-[44px] w-11 min-w-[44px] rounded-xl">
+            <span class="icon-sun">{{ icon('sun', 20) }}</span>
+            <span class="icon-moon">{{ icon('moon', 20) }}</span>
           </button>
         </div>
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <main class="mx-auto w-full max-w-[640px] flex-1 px-4 pb-24 pt-4 md:px-6">
       {% block content %}{% endblock %}
     </main>
-
-    <footer class="border-t border-base-content/10 bg-base-100/40">
-      <div class="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-4 text-xs opacity-65 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div>
-          <span class="font-medium opacity-90">Known limits:</span>
-          <span>No Office or Markdown to PDF, and no mobi/azw3 ebooks. Large videos convert slowly on phone CPUs.</span>
-        </div>
-        <span class="shrink-0 font-medium opacity-75">Sequential 1-job queue · 1h TTL</span>
-      </div>
-    </footer>
   </div>
+
+  <div id="toast-area" class="toast toast-top toast-center z-50" aria-live="polite"></div>
+
+  <dialog id="info-modal" class="modal modal-bottom sm:modal-middle" aria-labelledby="info-modal-title">
+    <div class="modal-box max-h-[85vh] overflow-y-auto rounded-t-[24px] border border-base-300 bg-base-200 p-4 sm:rounded-2xl">
+      <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-base-300 sm:hidden" aria-hidden="true"></div>
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 id="info-modal-title" class="text-[18px] font-semibold">About Converza</h2>
+        <form method="dialog">
+          <button type="submit" aria-label="Close" class="btn btn-ghost btn-square h-11 min-h-[44px] w-11 min-w-[44px] rounded-xl">
+            {{ icon('x', 20) }}
+          </button>
+        </form>
+      </div>
+      <div id="info-body" class="space-y-4">
+        <div class="flex items-center gap-2 text-sm text-muted">
+          {{ icon('loader', 18, 'motion-safe:animate-spin') }}
+          <span>Loading device info...</span>
+        </div>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button type="submit" aria-label="Close">close</button>
+    </form>
+  </dialog>
+
+  <dialog id="preview-modal"
+          closedby="any"
+          aria-labelledby="preview-modal-title"
+          class="m-auto w-[95vw] max-w-4xl rounded-2xl border border-base-300 bg-base-200 p-0 text-base-content">
+    <div class="flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3">
+      <h2 id="preview-modal-title" class="truncate text-base font-medium">Preview</h2>
+      <div class="flex shrink-0 items-center gap-2">
+        <a id="preview-modal-download"
+           href="#"
+           download
+           class="btn btn-primary btn-sm min-h-[40px] gap-1.5 px-3 text-sm font-medium">
+          {{ icon('download', 16) }}
+          <span>Download</span>
+        </a>
+        <form method="dialog">
+          <button type="submit" class="btn btn-ghost btn-sm min-h-[40px] px-3 text-sm font-medium">Close</button>
+        </form>
+      </div>
+    </div>
+    <div id="preview-modal-body" class="flex max-h-[82dvh] items-center justify-center overflow-auto bg-base-100 p-3 sm:p-4"></div>
+  </dialog>
 
   <script>
     (function () {
@@ -101,16 +125,24 @@
           var next = current === 'light' ? 'dark' : 'light';
           applyTheme(next);
           try {
-            localStorage.setItem('converza-theme', next);
+            localStorage.setItem('theme', next);
           } catch (e) {}
         });
       }
 
       window.addEventListener('storage', function (ev) {
-        if (ev.key === 'converza-theme' && (ev.newValue === 'light' || ev.newValue === 'dark')) {
+        if (ev.key === 'theme' && (ev.newValue === 'light' || ev.newValue === 'dark')) {
           applyTheme(ev.newValue);
         }
       });
+
+      var infoModal = document.getElementById('info-modal');
+      var statusDotBtn = document.getElementById('status-dot-btn');
+      if (statusDotBtn && infoModal && typeof infoModal.showModal === 'function') {
+        statusDotBtn.addEventListener('click', function () {
+          infoModal.showModal();
+        });
+      }
     })();
   </script>
   {% block scripts %}{% endblock %}

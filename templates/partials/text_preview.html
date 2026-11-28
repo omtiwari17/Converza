@@ -1,11 +1,11 @@
-<div class="mt-3 rounded-lg border border-base-content/10 bg-base-200/70 p-3">
+<div class="mt-2 rounded-xl border border-base-300 bg-base-100 p-3">
   <div class="mb-2 flex items-center justify-between gap-2">
-    <span class="text-xs font-medium opacity-75">
+    <span class="text-[14px] font-medium text-muted">
       Extracted text{% if truncated %} (first 64 KB){% endif %}
     </span>
     <span class="relative inline-flex items-center gap-2">
       <button type="button"
-              class="copy-button btn btn-ghost btn-xs min-h-[32px] gap-1.5 rounded-md border border-base-content/15 px-2.5"
+              class="copy-button btn btn-outline btn-xs min-h-[32px] gap-1.5 border-base-300 px-2.5 text-xs"
               command="--copy"
               commandfor="text-{{ job.id }}"
               aria-label="Copy extracted text for {{ job.name }}">
@@ -17,11 +17,11 @@
         </svg>
         <span>Copy</span>
       </button>
-      <span class="copy-tip font-mono text-[11px] text-primary" role="status"></span>
+      <span class="copy-tip font-mono text-[12px] text-primary" role="status"></span>
       <button type="button"
               data-close-preview="preview-{{ job.id }}"
               aria-label="Close text preview for {{ job.name }}"
-              class="btn btn-ghost btn-xs min-h-[32px] rounded-md px-2 text-xs opacity-70 hover:opacity-100">
+              class="btn btn-ghost btn-xs min-h-[32px] px-2 text-xs">
         Close
       </button>
     </span>
@@ -29,5 +29,5 @@
   <pre tabindex="0"
        role="region"
        aria-label="Text preview for {{ job.name }}"
-       class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-base-100 p-2.5 font-mono text-xs leading-relaxed"><code id="text-{{ job.id }}">{{ text }}</code></pre>
+       class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-base-200 p-2.5 font-mono text-[13px] leading-relaxed"><code id="text-{{ job.id }}">{{ text }}</code></pre>
 </div>

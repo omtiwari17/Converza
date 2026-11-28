@@ -86,16 +86,18 @@ class RegistryTests(unittest.TestCase):
         cmd, _ = registry.build_cmd(
             'video', 'in.mp4', 'out', 'mp4',
             require_tool=False,
-            options={'video_height': '720', 'audio_bitrate': '128k'},
+            options={'video_size': '720', 'video_quality': 'high', 'audio_bitrate': '128'},
         )
         self.assertIn('-vf', cmd)
         self.assertIn('scale=-2:720', cmd)
+        self.assertIn('-crf', cmd)
+        self.assertIn('20', cmd)
         self.assertNotIn('-b:a', cmd)
 
         cmd_a, _ = registry.build_cmd(
             'audio', 'in.wav', 'out', 'mp3',
             require_tool=False,
-            options={'audio_bitrate': '192k'},
+            options={'audio_bitrate': '192'},
         )
         self.assertIn('-b:a', cmd_a)
         self.assertIn('192k', cmd_a)
@@ -103,8 +105,10 @@ class RegistryTests(unittest.TestCase):
         cmd_i, _ = registry.build_cmd(
             'image', 'in.png', 'out', 'webp',
             require_tool=False,
-            options={'image_quality': '85'},
+            options={'image_quality': '85', 'image_width': '1280'},
         )
+        self.assertIn('-resize', cmd_i)
+        self.assertIn('1280x', cmd_i)
         self.assertIn('-quality', cmd_i)
         self.assertIn('85', cmd_i)
 
@@ -117,9 +121,25 @@ class RegistryTests(unittest.TestCase):
         self.assertIn('eng', cmd_o)
 
         with self.assertRaises(ValueError):
-            registry.validate_options({'video_height': '9999; rm -rf /'})
+            registry.validate_options({'video_size': '9999; rm -rf /'})
+        with self.assertRaises(ValueError):
+            registry.validate_options({'video_quality': 'ultra'})
+        with self.assertRaises(ValueError):
+            registry.validate_options({'image_quality': '10'})
+        with self.assertRaises(ValueError):
+            registry.validate_options({'image_width': '5000'})
         with self.assertRaises(ValueError):
             registry.validate_options({'ocr_lang': 'invalid_lang'})
+
+    def test_default_target_rules_per_spec(self):
+        fake_tools = {k: 'ok' for k in registry.get_tools()}
+        fake_tools['magick_pdf'] = True
+        with mock.patch('registry.get_tools', return_value=fake_tools):
+            self.assertEqual(registry.default_target('video', 'mov'), 'mp4')
+            self.assertEqual(registry.default_target('video', 'mp4'), 'webm')
+            self.assertEqual(registry.default_target('pdf', 'pdf'), 'png')
+            self.assertEqual(registry.default_target('image', 'png'), 'jpg')
+            self.assertEqual(registry.default_target('image', 'jpg'), 'png')
 
     def test_pdf_to_html_and_docx_steps(self):
         steps_html, out_html = registry.build_steps('pdf', 'in.pdf', 'out', 'html', require_tool=False)

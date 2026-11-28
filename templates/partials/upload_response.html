@@ -1,0 +1,16 @@
+{% for job in rows %}
+  {% include 'partials/file_card.html' %}
+{% endfor %}
+{% if skipped %}
+  {% set skipped_msg = skipped | length ~ ' file(s) skipped: unsupported type' %}
+  {% with message=skipped_msg, level='warning', oob=True %}
+    {% include 'partials/toast.html' %}
+  {% endwith %}
+{% elif empty %}
+  {% with message='No files selected', level='warning', oob=True %}
+    {% include 'partials/toast.html' %}
+  {% endwith %}
+{% endif %}
+{% with oob=True %}
+  {% include 'partials/bulk_bar.html' %}
+{% endwith %}

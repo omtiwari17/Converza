@@ -33,12 +33,30 @@ VIDEO_HEIGHTS: dict[str, int | None] = {
     '480': 480,
 }
 
-AUDIO_BITRATES: tuple[str, ...] = ('', '320k', '192k', '128k', '96k')
-IMAGE_QUALITIES: dict[str, int | None] = {
+VIDEO_QUALITY_CRF: dict[str, int | None] = {
     '': None,
-    '95': 95,
-    '85': 85,
-    '70': 70,
+    'high': 20,
+    'balanced': 26,
+    'small': 31,
+}
+
+AUDIO_BITRATES: dict[str, str | None] = {
+    '': None,
+    '320': '320k',
+    '192': '192k',
+    '128': '128k',
+    '96': '96k',
+    '320k': '320k',
+    '192k': '192k',
+    '128k': '128k',
+    '96k': '96k',
+}
+
+IMAGE_WIDTHS: dict[str, int | None] = {
+    '': None,
+    '1920': 1920,
+    '1280': 1280,
+    '800': 800,
 }
 
 
@@ -180,20 +198,63 @@ def available_targets(category: str) -> list[str]:
     return [t for t in TARGETS[category] if is_target_available(category, t)]
 
 
+def default_target(category: str, input_ext: str, targets: list[str] | None = None) -> str | None:
+    """Return the pre-selected target for an uploaded file per UI spec section 5.4."""
+    avail = targets if targets is not None else available_targets(category)
+    if not avail:
+        return None
+    ext = input_ext.lower().lstrip('.')
+    preferred: str | None = None
+    if category == 'video':
+        preferred = 'webm' if ext == 'mp4' else 'mp4'
+    elif category == 'pdf':
+        preferred = 'png'
+    elif category == 'image':
+        preferred = 'png' if ext in ('jpg', 'jpeg') else 'jpg'
+
+    if preferred and preferred in avail:
+        return preferred
+    return next((t for t in avail if t != ext), avail[0])
+
+
+def engine_statuses() -> list[dict[str, str | bool]]:
+    """Return display status rows for each converter engine on this device."""
+    tools = get_tools()
+    return [
+        {'name': 'FFmpeg (video, audio)', 'ready': bool(tools['ffmpeg'])},
+        {'name': 'ImageMagick (images)', 'ready': bool(tools['magick'])},
+        {'name': 'Pandoc (documents)', 'ready': bool(tools['pandoc'])},
+        {'name': 'Poppler (PDF)', 'ready': bool(tools['pdftoppm'] or tools['pdftotext'] or tools['pdftohtml'])},
+        {'name': 'Tesseract (OCR)', 'ready': bool(tools['tesseract'])},
+    ]
+
+
+def all_engines_ready() -> bool:
+    """Return True if every converter engine is available on this device."""
+    return all(bool(row['ready']) for row in engine_statuses())
+
+
 def validate_options(raw_options: dict | None) -> dict[str, str]:
     """Validate and normalize optional conversion settings against strict whitelists."""
     opts = raw_options or {}
-    video_height = str(opts.get('video_height', '')).strip()
-    audio_bitrate = str(opts.get('audio_bitrate', '')).strip()
+    video_height = str(opts.get('video_size', opts.get('video_height', ''))).strip()
+    video_quality = str(opts.get('video_quality', '')).strip().lower()
+    audio_bitrate = str(opts.get('audio_bitrate', '')).strip().lower()
     image_quality = str(opts.get('image_quality', '')).strip()
+    image_width = str(opts.get('image_width', '')).strip()
     ocr_lang = str(opts.get('ocr_lang', '')).strip()
 
     if video_height not in VIDEO_HEIGHTS:
         raise ValueError(f'Unsupported video resolution: {video_height}')
+    if video_quality not in VIDEO_QUALITY_CRF:
+        raise ValueError(f'Unsupported video quality: {video_quality}')
     if audio_bitrate not in AUDIO_BITRATES:
         raise ValueError(f'Unsupported audio bitrate: {audio_bitrate}')
-    if image_quality not in IMAGE_QUALITIES:
-        raise ValueError(f'Unsupported image quality: {image_quality}')
+    if image_width not in IMAGE_WIDTHS:
+        raise ValueError(f'Unsupported image width: {image_width}')
+    if image_quality:
+        if not image_quality.isdigit() or not (60 <= int(image_quality) <= 100):
+            raise ValueError(f'Unsupported image quality: {image_quality}')
 
     installed_langs = get_tools().get('ocr_langs') or []
     if ocr_lang and ocr_lang not in installed_langs and ocr_lang != 'eng':
@@ -201,8 +262,10 @@ def validate_options(raw_options: dict | None) -> dict[str, str]:
 
     return {
         'video_height': video_height,
+        'video_quality': video_quality,
         'audio_bitrate': audio_bitrate,
         'image_quality': image_quality,
+        'image_width': image_width,
         'ocr_lang': ocr_lang,
     }
 
@@ -246,7 +309,8 @@ def build_cmd(
         ffmpeg = str(tools['ffmpeg'] or 'ffmpeg')
         cmd = [ffmpeg, '-y', '-i', src_str]
         height = VIDEO_HEIGHTS[clean_opts['video_height']]
-        bitrate = clean_opts['audio_bitrate']
+        crf = VIDEO_QUALITY_CRF[clean_opts['video_quality']]
+        bitrate = AUDIO_BITRATES[clean_opts['audio_bitrate']]
         is_audio_out = target in ('mp3', 'wav', 'm4a', 'flac', 'ogg')
 
         if category == 'video' and is_audio_out:
@@ -254,8 +318,11 @@ def build_cmd(
         if target == 'gif':
             gif_width = 480 if height is None else min(480, height)
             cmd.extend(['-vf', f'fps=10,scale={gif_width}:-1'])
-        elif category == 'video' and not is_audio_out and height is not None:
-            cmd.extend(['-vf', f'scale=-2:{height}'])
+        elif category == 'video' and not is_audio_out:
+            if height is not None:
+                cmd.extend(['-vf', f'scale=-2:{height}'])
+            if crf is not None and target in ('mp4', 'mkv'):
+                cmd.extend(['-crf', str(crf)])
 
         if bitrate and target in ('mp3', 'm4a', 'ogg'):
             cmd.extend(['-b:a', bitrate])
@@ -271,10 +338,13 @@ def build_cmd(
                 cmd.extend(['-l', clean_opts['ocr_lang']])
             return cmd, out
         magick = str(tools['magick'] or 'magick')
-        quality = IMAGE_QUALITIES[clean_opts['image_quality']]
+        quality_str = clean_opts['image_quality']
+        width = IMAGE_WIDTHS[clean_opts['image_width']]
         cmd = [magick, src_str]
-        if quality is not None and target in ('jpg', 'webp'):
-            cmd.extend(['-quality', str(quality)])
+        if width is not None:
+            cmd.extend(['-resize', f'{width}x'])
+        if quality_str and target in ('jpg', 'webp'):
+            cmd.extend(['-quality', quality_str])
         cmd.append(out)
         return cmd, out
 

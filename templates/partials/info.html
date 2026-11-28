@@ -1,0 +1,41 @@
+{% from '_icons.html' import icon -%}
+<section class="space-y-2">
+  <h3 class="text-[14px] font-semibold">Engines on this device</h3>
+  <div class="divide-y divide-base-300 rounded-xl border border-base-300 bg-base-100">
+    {% for eng in engines %}
+    <div class="flex items-center justify-between px-3 py-2.5 text-[14px]">
+      <span>{{ eng.name }}</span>
+      {% if eng.ready %}
+      <span class="badge badge-success badge-sm text-[12px] font-medium">Ready</span>
+      {% else %}
+      <span class="badge badge-warning badge-sm text-[12px] font-medium">Missing</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="space-y-2">
+  <h3 class="text-[14px] font-semibold">Supported formats</h3>
+  <div class="space-y-2">
+    {% for item in capabilities %}
+    <details name="supported-formats" class="rounded-xl border border-base-300 bg-base-100 px-3">
+      <summary class="flex h-12 min-h-[48px] cursor-pointer items-center justify-between text-[14px] font-medium">
+        <span>{% if item.category == 'pdf' %}PDF{% else %}{{ item.category | capitalize }}{% endif %}</span>
+        {{ icon('chevron-down', 18, 'chevron-icon text-muted') }}
+      </summary>
+      <div class="space-y-1 border-t border-base-300 pb-3 pt-2 text-[14px]">
+        <p class="font-mono text-[13px] text-muted">{{ item.inputs | join(', ') }}</p>
+        <p>→ {{ item.targets | join(', ') }}</p>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="space-y-1.5">
+  <h3 class="text-[14px] font-semibold">Known limits</h3>
+  <p class="text-[14px] text-muted">
+    No Office or Markdown to PDF, no mobi/azw3. Large videos are slow on a phone. Max {{ max_upload_mb }} MB per file.
+  </p>
+</section>

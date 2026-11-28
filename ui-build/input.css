@@ -3,23 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    color-scheme: dark light;
-    --target-size: 24px;
-  }
-
-  :root:has(> head > meta[name="color-scheme"][content="dark"]) {
-    color-scheme: dark;
-  }
-
-  :root:has(> head > meta[name="color-scheme"][content="light"]) {
-    color-scheme: light;
-  }
-
-  @media (pointer: coarse) {
-    :root {
-      --target-size: 44px;
-    }
+  html {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
 
   body {
@@ -27,89 +12,96 @@
     min-height: 100dvh;
   }
 
-  h1, h2, h3 {
-    text-wrap: balance;
+  :where(button, a, input, select, summary, label[for]) {
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease;
   }
 
-  p, li {
-    text-wrap: pretty;
-  }
-
-  :where(button, select, input:not([type="checkbox"], [type="radio"]), [role="button"]) {
-    min-block-size: var(--target-size);
+  :where(button, a, input, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid oklch(var(--p));
+    outline-offset: 2px;
   }
 }
 
-/* Layered dot-matrix canvas + subtle top ambient spotlight */
-.converza-bg {
-  background-color: #09090b;
-  background-image:
-    radial-gradient(60% 42% at 50% 0%, rgba(56, 189, 248, 0.13), transparent 70%),
-    radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  background-size: 100% 100%, 24px 24px;
+.text-muted {
+  color: #9aa7b4;
 }
 
-[data-theme="converza-light"] .converza-bg {
-  background-color: #fafafa;
-  background-image:
-    radial-gradient(60% 42% at 50% 0%, rgba(2, 132, 199, 0.09), transparent 70%),
-    radial-gradient(rgba(24, 24, 27, 0.07) 1px, transparent 1px);
-  background-size: 100% 100%, 24px 24px;
+[data-theme="converza-light"] .text-muted {
+  color: #475569;
 }
 
-/* Elevated tactile surface with 1px translucent border + top specular edge */
-.converza-card {
-  background-color: rgba(24, 24, 27, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
-    0 10px 30px -15px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(10px);
+/* Category 40x40 chips: 15% opacity background + exact category icon color */
+.cat-chip-video {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
 }
 
-[data-theme="converza-light"] .converza-card {
-  background-color: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(228, 228, 231, 0.9);
-  box-shadow:
-    0 1px 2px 0 rgba(24, 24, 27, 0.05),
-    0 10px 24px -16px rgba(24, 24, 27, 0.1);
+.cat-chip-audio {
+  background-color: rgba(52, 211, 153, 0.15);
+  color: #34d399;
 }
 
-.converza-dropzone {
-  background-color: rgba(9, 9, 11, 0.52);
-  border: 1.5px dashed rgba(255, 255, 255, 0.14);
-  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+.cat-chip-image {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
 }
 
-.converza-dropzone:hover {
-  border-color: rgba(56, 189, 248, 0.55);
-  background-color: rgba(56, 189, 248, 0.04);
+.cat-chip-document {
+  background-color: rgba(129, 140, 248, 0.15);
+  color: #818cf8;
 }
 
-[data-theme="converza-light"] .converza-dropzone {
-  background-color: rgba(244, 244, 245, 0.7);
-  border: 1.5px dashed rgba(24, 24, 27, 0.16);
+.cat-chip-pdf {
+  background-color: rgba(251, 113, 133, 0.15);
+  color: #fb7185;
 }
 
-[data-theme="converza-light"] .converza-dropzone:hover {
-  border-color: rgba(2, 132, 199, 0.55);
-  background-color: rgba(2, 132, 199, 0.04);
+/* Light-theme subtle shadow only (dark theme uses flat borders per spec) */
+[data-theme="converza-light"] .spec-card {
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
 }
 
-.converza-interactive {
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+/* Show Ctrl+V paste hint only on devices with mouse/hover */
+.paste-hint {
+  display: none;
 }
 
-.converza-interactive:active {
-  transform: scale(0.98);
+@media (hover: hover) and (pointer: fine) {
+  .paste-hint {
+    display: inline;
+  }
 }
 
-/* Prevent long unbroken filenames from widening mobile cards */
-.converza-filename {
-  overflow-wrap: anywhere;
+/* Dropzone drag-over state */
+.dropzone-drag-over {
+  border-style: solid !important;
+  border-color: oklch(var(--p)) !important;
+  background-color: oklch(var(--p) / 0.1) !important;
 }
 
-/* Collapse HTMX indicator completely when idle */
+.dropzone-drag-over .dropzone-label-idle {
+  display: none;
+}
+
+.dropzone-label-drag {
+  display: none;
+}
+
+.dropzone-drag-over .dropzone-label-drag {
+  display: inline;
+}
+
+/* Card enter fade only (150ms, no slide) */
+@keyframes card-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.card-enter {
+  animation: card-fade-in 150ms ease;
+}
+
+/* Collapse HTMX indicator when idle */
 .htmx-indicator {
   display: none;
 }
@@ -119,51 +111,26 @@
   display: flex;
 }
 
-/* Soft-tinted alert surfaces for dark and light themes */
-.converza-alert-warn {
-  background-color: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.28);
-  color: #fde68a;
-}
-
-[data-theme="converza-light"] .converza-alert-warn {
-  background-color: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(217, 119, 6, 0.25);
-  color: #92400e;
-}
-
-.converza-alert-error {
-  background-color: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.28);
-  color: #fecaca;
-}
-
-[data-theme="converza-light"] .converza-alert-error {
-  background-color: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(220, 38, 38, 0.22);
-  color: #991b1b;
-}
-
-/* Native <details> disclosure chevron */
-.converza-details > summary {
-  list-style: none;
-}
-
-.converza-details > summary::-webkit-details-marker {
-  display: none;
-}
-
-.converza-details[open] .converza-chevron {
+/* Details chevron rotation */
+details[open] > summary .chevron-icon {
   transform: rotate(180deg);
 }
 
-/* Native <dialog> lightbox backdrop */
-dialog#preview-modal::backdrop {
-  background: rgba(9, 9, 11, 0.84);
-  backdrop-filter: blur(6px);
+details > summary {
+  list-style: none;
 }
 
-/* Copy button icon & status feedback */
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Theme icon visibility */
+[data-theme="converza-dark"] .icon-moon,
+[data-theme="converza-light"] .icon-sun {
+  display: none;
+}
+
+/* Copy feedback */
 .copy-button .copy-icon-done {
   display: none;
 }
@@ -185,30 +152,35 @@ dialog#preview-modal::backdrop {
   opacity: 1;
 }
 
-/* Theme toggle icon branching */
-[data-theme="converza-dark"] .theme-icon-dark,
-[data-theme="converza-light"] .theme-icon-light {
-  display: none;
+/* Lightbox backdrop */
+dialog#preview-modal::backdrop {
+  background: rgba(15, 20, 25, 0.8);
 }
 
-/* Respect reduced motion on indeterminate progress bar */
-progress:indeterminate {
-  --progress-duration: 1.5s;
-}
-
+/* Reduced motion: disable indeterminate animation and use static striped bar */
 @media (prefers-reduced-motion: reduce) {
-  progress:indeterminate {
-    --progress-duration: 8s;
+  .card-enter {
+    animation: none;
   }
-  .progress:indeterminate::-webkit-progress-value,
-  .progress:indeterminate::-moz-progress-bar {
-    animation-duration: var(--progress-duration);
-  }
-}
 
-.btn,
-.collapse,
-.badge,
-.alert {
-  transition: none;
+  progress:indeterminate {
+    appearance: none;
+    background: repeating-linear-gradient(
+      -45deg,
+      oklch(var(--p)),
+      oklch(var(--p)) 8px,
+      oklch(var(--b3)) 8px,
+      oklch(var(--b3)) 16px
+    );
+  }
+
+  progress:indeterminate::-webkit-progress-bar {
+    background: transparent;
+  }
+
+  progress:indeterminate::-webkit-progress-value,
+  progress:indeterminate::-moz-progress-bar {
+    animation: none;
+    background: transparent;
+  }
 }

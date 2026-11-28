@@ -58,8 +58,11 @@ def create_job(orig_name: str, category: str, ext: str, size: int = 0) -> tuple[
         'status': 'uploaded',
         'error': None,
         'output': None,
+        'output_size': None,
         'pages': [],
         'created': time.time(),
+        'started_at': None,
+        'elapsed': None,
     }
     with LOCK:
         JOBS[job_id] = record
@@ -81,6 +84,13 @@ def get_job(job_id: str) -> dict | None:
     with LOCK:
         job = JOBS.get(job_id)
         return dict(job) if job is not None else None
+
+
+def list_jobs() -> list[dict]:
+    """Return thread-safe snapshots of all jobs ordered by creation time."""
+    with LOCK:
+        ordered = sorted(JOBS.values(), key=lambda j: j['created'])
+        return [dict(j) for j in ordered]
 
 
 def delete_job(job_id: str, *, allow_active: bool = False) -> tuple[bool, str | None]:
@@ -169,7 +179,9 @@ def run_job(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: st
         if job is None or job_id in _CANCELLED_JOBS or job['status'] != 'queued':
             _CANCELLED_JOBS.discard(job_id)
             return
+        started = time.time()
         job['status'] = 'running'
+        job['started_at'] = started
 
     proc: subprocess.Popen | None = None
     try:
@@ -206,12 +218,16 @@ def run_job(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: st
 
         _CANCELLED_JOBS.discard(job_id)
         final_out, page_names = _finalize_output(job_id, category, target, out_path)
+        out_size = final_out.stat().st_size if final_out.is_file() else None
         with LOCK:
             if job_id in JOBS:
+                elapsed = max(0, int(time.time() - (JOBS[job_id].get('started_at') or time.time())))
                 JOBS[job_id].update(
                     status='done',
                     output=str(final_out),
+                    output_size=out_size,
                     pages=page_names,
+                    elapsed=elapsed,
                     error=None,
                 )
     except subprocess.TimeoutExpired:
@@ -269,6 +285,30 @@ def cancel_job(job_id: str) -> tuple[dict | None, str | None]:
     return snapshot, None
 
 
+def reset_job(job_id: str) -> tuple[dict | None, str | None]:
+    """Reset a finished or errored job back to READY ('uploaded') state."""
+    if not is_valid_job_id(job_id):
+        return None, 'not_found'
+    with LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            return None, 'not_found'
+        if job['status'] in ('queued', 'running'):
+            return dict(job), 'active'
+        _CANCELLED_JOBS.discard(job_id)
+        _clear_job_outputs(job_id)
+        job.update(
+            status='uploaded',
+            error=None,
+            output=None,
+            output_size=None,
+            pages=[],
+            started_at=None,
+            elapsed=None,
+        )
+        return dict(job), None
+
+
 def submit(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: str | Path, target: str) -> tuple[dict | None, str | None]:
     """Queue a job for conversion. Returns (job_snapshot, error_code)."""
     with LOCK:
@@ -280,7 +320,16 @@ def submit(job_id: str, cmd_or_steps: list[str] | list[list[str]], out_path: str
         category = job['category']
         _CANCELLED_JOBS.discard(job_id)
         _clear_job_outputs(job_id)
-        job.update(target=target, status='queued', error=None, output=None, pages=[])
+        job.update(
+            target=target,
+            status='queued',
+            error=None,
+            output=None,
+            output_size=None,
+            pages=[],
+            started_at=None,
+            elapsed=None,
+        )
         snapshot = dict(job)
 
     POOL.submit(run_job, job_id, cmd_or_steps, out_path, category, target)

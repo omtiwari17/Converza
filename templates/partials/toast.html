@@ -1,0 +1,13 @@
+{% from '_icons.html' import icon -%}
+{% if oob %}
+<div id="toast-area" hx-swap-oob="innerHTML">
+{% endif %}
+  <div data-auto-toast
+       role="alert"
+       class="alert {% if level == 'error' %}alert-error{% elif level == 'success' %}alert-success{% else %}alert-warning{% endif %} rounded-xl border border-base-300 text-[14px] shadow-sm">
+    {{ icon('alert-circle', 18) }}
+    <span>{{ message }}</span>
+  </div>
+{% if oob %}
+</div>
+{% endif %}

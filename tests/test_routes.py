@@ -118,15 +118,19 @@ class RoutesTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         html = res.get_data(as_text=True)
         self.assertIn('Converza', html)
-        self.assertIn('data-theme="converza-dark"', html)
-        self.assertIn('Up to 500 MB', html)
+        self.assertIn('Convert any file', html)
+        self.assertIn('Drop files here to convert', html)
+        self.assertIn('Up to 500 MB per file', html)
         self.assertIn('/static/css/app.css', html)
         self.assertIn('/static/js/htmx.min.js', html)
         self.assertIn('/static/img/logo.svg', html)
+        self.assertIn('id="info-modal"', html)
+        self.assertIn('id="preview-modal"', html)
 
         css_res = self.client.get('/static/css/app.css')
         self.assertEqual(css_res.status_code, 200)
         self.assertGreater(len(css_res.data), 1000)
+        self.assertLess(len(css_res.data), 102400)
         css_res.close()
 
         js_res = self.client.get('/static/js/htmx.min.js')
@@ -138,6 +142,14 @@ class RoutesTests(unittest.TestCase):
         self.assertEqual(logo_res.status_code, 200)
         self.assertIn(b'<svg', logo_res.data)
         logo_res.close()
+
+    def test_info_sheet_endpoint(self):
+        res = self.client.get('/info')
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn('Engines on this device', html)
+        self.assertIn('Supported formats', html)
+        self.assertIn('Known limits', html)
 
     def test_upload_unicode_traversal_and_skipped(self):
         tools = registry.get_tools()
@@ -153,8 +165,9 @@ class RoutesTests(unittest.TestCase):
         res = self.client.post('/upload', data=data, content_type='multipart/form-data')
         self.assertEqual(res.status_code, 200)
         html = res.get_data(as_text=True)
-        self.assertIn('测试 sample (1).pdf', html)
-        self.assertIn('malware.exe', html)
+        self.assertIn('测试 sample', html)
+        self.assertIn('.pdf', html)
+        self.assertIn('1 file(s) skipped: unsupported type', html)
         job_id = self._extract_job_id(html)
         self.assertTrue((config.UPLOAD_DIR / job_id / 'in.pdf').is_file())
 
@@ -401,13 +414,14 @@ class RoutesTests(unittest.TestCase):
             content_type='multipart/form-data',
         )
         self.assertEqual(res.status_code, 413)
-        self.assertIn('size limit', res.get_data(as_text=True))
+        self.assertIn('File too large', res.get_data(as_text=True))
 
     def test_delete_job_removes_files_and_protects_running(self):
         job, in_path = jobs.create_job('remove.pdf', 'pdf', 'pdf', size=10)
         in_path.write_bytes(b'%PDF-1.4')
         del_res = self.client.delete(f"/jobs/{job['id']}")
         self.assertEqual(del_res.status_code, 200)
+        self.assertIn('id="bulk-bar"', del_res.get_data(as_text=True))
         self.assertIsNone(jobs.get_job(job['id']))
         self.assertFalse((config.UPLOAD_DIR / job['id']).exists())
         self.assertEqual(self.client.delete(f"/jobs/{job['id']}").status_code, 404)
@@ -416,6 +430,26 @@ class RoutesTests(unittest.TestCase):
         with jobs.LOCK:
             jobs.JOBS[active['id']]['status'] = 'running'
         self.assertEqual(self.client.delete(f"/jobs/{active['id']}").status_code, 409)
+
+    def test_reset_job_for_convert_again(self):
+        if not registry.get_tools()['pdftotext']:
+            self.skipTest('pdftotext not installed')
+
+        res = self.client.post(
+            '/upload',
+            data={'files': (io.BytesIO(_make_sample_pdf('Reset Me')), 'again.pdf')},
+            content_type='multipart/form-data',
+        )
+        job_id = self._extract_job_id(res.get_data(as_text=True))
+        self.client.post(f'/convert/{job_id}', data={'target': 'txt'})
+        done_html = self._wait_until_finished(job_id)
+        self.assertIn('Convert again', done_html)
+
+        reset_res = self.client.post(f'/jobs/{job_id}/reset')
+        self.assertEqual(reset_res.status_code, 200)
+        reset_html = reset_res.get_data(as_text=True)
+        self.assertIn('data-job-status="uploaded"', reset_html)
+        self.assertIn('>Convert<', reset_html.replace('\n', '').replace(' ', ''))
 
     def test_smart_default_target_skips_same_extension(self):
         fake_tools = {k: 'ok' for k in registry.get_tools()}
@@ -428,15 +462,15 @@ class RoutesTests(unittest.TestCase):
             )
             self.assertEqual(res.status_code, 200)
             html = res.get_data(as_text=True)
-            self.assertIn('<option value="jpg" selected>', html)
+            self.assertIn('value="jpg"', html)
+            self.assertIn('checked', html)
 
     def test_index_renders_supported_formats_disclosure(self):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
         html = res.get_data(as_text=True)
-        self.assertIn('Supported formats on this device', html)
-        self.assertIn('Drop files anywhere to upload', html)
-        self.assertIn('Conversion options', html)
+        self.assertIn('How it works', html)
+        self.assertIn('Files delete automatically after 1 hour', html)
         self.assertIn('id="preview-modal"', html)
 
     def test_text_preview_endpoint_and_option_validation(self):
@@ -452,7 +486,7 @@ class RoutesTests(unittest.TestCase):
 
         # Invalid option rejected with 400
         self.assertEqual(
-            self.client.post(f'/convert/{job_id}', data={'target': 'txt', 'video_height': 'evil'}).status_code,
+            self.client.post(f'/convert/{job_id}', data={'target': 'txt', 'video_size': 'evil'}).status_code,
             400,
         )
 

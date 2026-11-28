@@ -1,3 +1,8 @@
 {% for job in rows %}
-  {% include 'partials/job_row.html' %}
+  {% include 'partials/file_card.html' %}
 {% endfor %}
+{% if include_bulk_oob %}
+  {% with oob=True %}
+    {% include 'partials/bulk_bar.html' %}
+  {% endwith %}
+{% endif %}

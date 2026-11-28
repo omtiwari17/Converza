@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import os
 import re
+import time
 from pathlib import Path
 
 from flask import Flask, Response, abort, render_template, request, send_file
@@ -35,12 +36,18 @@ def _parse_upload_name(raw_filename: str) -> tuple[str, str]:
     return base, ext
 
 
+def _format_duration(seconds: int | float | None) -> str:
+    """Format elapsed seconds as MM:SS."""
+    secs = max(0, int(seconds or 0))
+    return f'{secs // 60:02d}:{secs % 60:02d}'
+
+
 def _row_context(job: dict) -> dict:
-    """Attach available target list, smart default target, and preview flags."""
+    """Attach available target list, smart default target, elapsed, and preview flags."""
     targets = registry.available_targets(job['category'])
     default_target = job.get('target')
     if not default_target and targets:
-        default_target = next((t for t in targets if t != job['ext']), targets[0])
+        default_target = registry.default_target(job['category'], job['ext'], targets)
 
     out_val = job.get('output') or ''
     ext = Path(out_val).suffix.lower().lstrip('.') if out_val else ''
@@ -62,6 +69,10 @@ def _row_context(job: dict) -> dict:
         elif ext == 'html':
             preview_kind = 'html'
 
+    elapsed_secs = job.get('elapsed')
+    if job['status'] == 'running' and job.get('started_at'):
+        elapsed_secs = int(time.time() - job['started_at'])
+
     return {
         **job,
         'targets': targets,
@@ -69,16 +80,41 @@ def _row_context(job: dict) -> dict:
         'can_preview_text': preview_kind == 'text',
         'preview_kind': preview_kind,
         'page_count': len(pages),
+        'elapsed_str': _format_duration(elapsed_secs),
     }
 
 
-def _extract_options(form) -> dict[str, str]:
+def _bulk_context() -> dict:
+    """Compute bulk action bar state from all active in-memory jobs."""
+    all_jobs = jobs.list_jobs()
+    total = len(all_jobs)
+    ready_count = sum(1 for j in all_jobs if j['status'] == 'uploaded')
+    active_count = sum(1 for j in all_jobs if j['status'] in ('queued', 'running'))
+    done_ids = [j['id'] for j in all_jobs if j['status'] == 'done']
+    done_count = len(done_ids)
+    completed_or_active = active_count + done_count
+    return {
+        'total': total,
+        'ready_count': ready_count,
+        'active_count': active_count,
+        'done_ids': done_ids,
+        'done_count': done_count,
+        'converting_index': min(done_count + 1, total) if active_count else done_count,
+        'all_done': total >= 2 and ready_count == 0 and active_count == 0 and done_count >= 2,
+        'visible': total >= 2,
+        'completed_or_active': completed_or_active,
+    }
+
+
+def _extract_options(form, prefix: str = '') -> dict[str, str]:
     """Read optional conversion settings from submitted form data."""
     return {
-        'video_height': form.get('video_height', ''),
-        'audio_bitrate': form.get('audio_bitrate', ''),
-        'image_quality': form.get('image_quality', ''),
-        'ocr_lang': form.get('ocr_lang', ''),
+        'video_height': form.get(f'{prefix}video_size', form.get(f'{prefix}video_height', '')),
+        'video_quality': form.get(f'{prefix}video_quality', ''),
+        'audio_bitrate': form.get(f'{prefix}audio_bitrate', ''),
+        'image_quality': form.get(f'{prefix}image_quality', ''),
+        'image_width': form.get(f'{prefix}image_width', ''),
+        'ocr_lang': form.get(f'{prefix}ocr_lang', ''),
     }
 
 
@@ -153,20 +189,31 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
 
     @application.errorhandler(413)
     def file_too_large(_err):
-        html = (
-            f'<div class="alert alert-error rounded-xl text-sm" role="alert">'
-            f'<span>Upload exceeds the {MAX_UPLOAD_MB} MB size limit.</span>'
-            f'</div>'
-        )
-        return html, 413
+        return render_template(
+            'partials/toast.html',
+            message=f'File too large (max {MAX_UPLOAD_MB} MB)',
+            level='error',
+            oob=False,
+        ), 413
 
     @application.get('/')
     def index():
+        current_jobs = [_row_context(j) for j in jobs.list_jobs()]
         return render_template(
             'index.html',
             max_upload_mb=MAX_UPLOAD_MB,
+            jobs=current_jobs,
+            bulk=_bulk_context(),
+            all_ready=registry.all_engines_ready(),
+        )
+
+    @application.get('/info')
+    def info_sheet():
+        return render_template(
+            'partials/info.html',
+            engines=registry.engine_statuses(),
             capabilities=_capabilities(),
-            tools=registry.get_tools(),
+            max_upload_mb=MAX_UPLOAD_MB,
         )
 
     @application.get('/healthz')
@@ -201,10 +248,11 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             rows.append(_row_context(job))
 
         return render_template(
-            'partials/file_rows.html',
+            'partials/upload_response.html',
             rows=rows,
             skipped=skipped,
             empty=not raw_files,
+            bulk=_bulk_context(),
         )
 
     @application.post('/convert/<job_id>')
@@ -225,7 +273,12 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
         if err == 'not_found' or updated is None:
             abort(404)
         status_code = 409 if err == 'already_active' else 200
-        return render_template('partials/job_row.html', job=_row_context(updated)), status_code
+        return render_template(
+            'partials/file_card.html',
+            job=_row_context(updated),
+            bulk=_bulk_context(),
+            include_bulk_oob=True,
+        ), status_code
 
     @application.post('/convert-all')
     def convert_all():
@@ -234,11 +287,11 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
             abort(400)
 
         queued_rows: list[dict] = []
-        pending_specs: list[tuple[dict, list[str], str, str]] = []
+        pending_specs: list[tuple[dict, list[list[str]], str, str]] = []
         matched_any = False
 
         try:
-            options = registry.validate_options(_extract_options(request.form))
+            shared_options = registry.validate_options(_extract_options(request.form))
         except ValueError:
             abort(400)
 
@@ -251,26 +304,46 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
                 continue
             if not registry.is_target_available(job['category'], target):
                 abort(400)
+            per_job_opts = _extract_options(request.form, prefix=f'opt_{jid}_')
+            merged_opts = {
+                k: per_job_opts[k] or shared_options[k]
+                for k in shared_options
+            }
+            try:
+                validated_opts = registry.validate_options(merged_opts)
+            except ValueError:
+                abort(400)
             src = UPLOAD_DIR / jid / f"in.{job['ext']}"
             dst_base = OUTPUT_DIR / jid / 'out'
-            steps, out = registry.build_steps(job['category'], src, dst_base, target, options=options)
+            steps, out = registry.build_steps(job['category'], src, dst_base, target, options=validated_opts)
             pending_specs.append((job, steps, out, target))
 
         if not matched_any:
             abort(404)
 
-        for job, cmd, out, target in pending_specs:
-            updated, err = jobs.submit(job['id'], cmd, out, target)
+        for job, steps, out, target in pending_specs:
+            updated, err = jobs.submit(job['id'], steps, out, target)
             if updated is not None and err != 'not_found':
                 queued_rows.append(_row_context(updated))
 
         is_htmx = request.headers.get('HX-Request') == 'true'
-        return render_template('partials/convert_all.html', rows=queued_rows, oob=is_htmx)
+        return render_template(
+            'partials/convert_all.html',
+            rows=queued_rows,
+            oob=is_htmx,
+            bulk=_bulk_context(),
+            include_bulk_oob=is_htmx,
+        )
 
     @application.get('/jobs/<job_id>')
     def job_status(job_id: str):
         job = jobs.get_job(job_id) or abort(404)
-        return render_template('partials/job_row.html', job=_row_context(job))
+        return render_template(
+            'partials/file_card.html',
+            job=_row_context(job),
+            bulk=_bulk_context(),
+            include_bulk_oob=True,
+        )
 
     @application.get('/jobs/<job_id>/text')
     def preview_text(job_id: str):
@@ -332,11 +405,16 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
         )
 
     @application.delete('/jobs/<job_id>')
+    @application.post('/jobs/<job_id>/delete')
     def remove_job(job_id: str):
         deleted, reason = jobs.delete_job(job_id)
         if not deleted:
             abort(409 if reason == 'active' else 404)
-        return '', 200
+        return render_template(
+            'partials/bulk_bar.html',
+            bulk=_bulk_context(),
+            oob=True,
+        )
 
     @application.post('/jobs/<job_id>/cancel')
     def cancel_job_route(job_id: str):
@@ -344,7 +422,25 @@ def create_app(*, start_cleanup: bool = True, clean_on_start: bool = True) -> Fl
         if err == 'not_found' or updated is None:
             abort(404)
         status_code = 409 if err == 'not_active' else 200
-        return render_template('partials/job_row.html', job=_row_context(updated)), status_code
+        return render_template(
+            'partials/file_card.html',
+            job=_row_context(updated),
+            bulk=_bulk_context(),
+            include_bulk_oob=True,
+        ), status_code
+
+    @application.post('/jobs/<job_id>/reset')
+    def reset_job_route(job_id: str):
+        updated, err = jobs.reset_job(job_id)
+        if err == 'not_found' or updated is None:
+            abort(404)
+        status_code = 409 if err == 'active' else 200
+        return render_template(
+            'partials/file_card.html',
+            job=_row_context(updated),
+            bulk=_bulk_context(),
+            include_bulk_oob=True,
+        ), status_code
 
     @application.get('/download/<job_id>')
     def download(job_id: str):

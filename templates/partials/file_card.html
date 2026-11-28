@@ -1,0 +1,270 @@
+{% from '_icons.html' import icon -%}
+{%- set is_locked = job.status in ('queued', 'running', 'done') -%}
+<article id="job-{{ job.id }}"
+         data-job-id="{{ job.id }}"
+         data-job-category="{{ job.category }}"
+         data-job-status="{{ job.status }}"
+         class="card-enter spec-card space-y-3 rounded-2xl border border-base-300 bg-base-200 p-4"
+         {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+         {% if job.status in ('queued', 'running') %}
+         hx-get="/jobs/{{ job.id }}"
+         hx-trigger="every 1s"
+         hx-swap="outerHTML"
+         {% endif %}>
+  <!-- Header Row -->
+  <div class="flex items-center gap-3">
+    <div class="cat-chip-{{ job.category }} flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]">
+      {% if job.category == 'video' %}
+        {{ icon('film', 20) }}
+      {% elif job.category == 'audio' %}
+        {{ icon('music', 20) }}
+      {% elif job.category == 'image' %}
+        {{ icon('image', 20) }}
+      {% elif job.category == 'document' %}
+        {{ icon('file-text', 20) }}
+      {% else %}
+        {{ icon('file', 20) }}
+      {% endif %}
+    </div>
+
+    <div class="min-w-0 flex-1">
+      <p data-job-name class="flex min-w-0 items-baseline text-[16px] font-medium leading-snug" title="{{ job.name }}">
+        {%- set suffix = '.' ~ job.ext -%}
+        {%- if job.ext and job.name.lower().endswith(suffix) -%}
+          <span class="truncate">{{ job.name[:-((job.ext | length) + 1)] }}</span><span class="shrink-0">{{ suffix }}</span>
+        {%- else -%}
+          <span class="truncate">{{ job.name }}</span>
+        {%- endif -%}
+      </p>
+      <p class="mt-0.5 text-[14px] text-muted tabular-nums">
+        <span class="font-mono uppercase">{{ job.ext }}</span> · {{ job.size | format_size }}
+      </p>
+    </div>
+
+    <button type="button"
+            data-remove-job
+            hx-delete="/jobs/{{ job.id }}"
+            hx-target="#job-{{ job.id }}"
+            hx-swap="outerHTML"
+            aria-label="Remove file"
+            {% if job.status == 'running' %}disabled{% endif %}
+            class="btn btn-ghost btn-square h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 rounded-xl">
+      {{ icon('x', 20) }}
+    </button>
+  </div>
+
+  <!-- Format Chips + Options Form -->
+  <form data-convert-form
+        hx-post="/convert/{{ job.id }}"
+        hx-target="#job-{{ job.id }}"
+        hx-swap="outerHTML"
+        class="space-y-3">
+    <fieldset {% if is_locked %}disabled{% endif %} class="space-y-2 {% if is_locked %}pointer-events-none opacity-50{% endif %}">
+      <legend class="text-[14px] text-muted">Convert to</legend>
+      <div class="flex flex-wrap gap-2">
+        {% for t in job.targets %}
+        <div class="inline-flex">
+          <input type="radio"
+                 id="t-{{ job.id }}-{{ t }}"
+                 name="target"
+                 value="{{ t }}"
+                 {% if t == job.default_target %}checked{% endif %}
+                 class="peer sr-only">
+          <label for="t-{{ job.id }}-{{ t }}"
+                 class="inline-flex h-10 min-h-[40px] cursor-pointer items-center rounded-full border border-base-300 px-4 text-[14px] font-medium peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-content peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">
+            {{ target_label(t) }}
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    {% if job.category in ('video', 'audio', 'image') %}
+    <details class="rounded-xl border border-base-300 bg-base-100/50 px-3 {% if is_locked %}pointer-events-none opacity-50{% endif %}">
+      <summary class="flex h-12 min-h-[48px] cursor-pointer items-center justify-between text-[14px] font-medium">
+        <span>Options</span>
+        {{ icon('chevron-down', 20, 'chevron-icon text-muted') }}
+      </summary>
+      <div class="space-y-3 border-t border-base-300 pb-3 pt-3 text-[14px]">
+        {% if job.category == 'video' %}
+        <label class="flex flex-col gap-1.5">
+          <span class="text-muted">Size</span>
+          <select name="video_size" data-opt-name="video_size" {% if is_locked %}disabled{% endif %} class="select select-bordered h-12 min-h-[48px] w-full rounded-xl bg-base-100 text-[16px]">
+            <option value="">Original</option>
+            <option value="1080">1080p</option>
+            <option value="720">720p</option>
+            <option value="480">480p</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="text-muted">Quality</span>
+          <select name="video_quality" data-opt-name="video_quality" {% if is_locked %}disabled{% endif %} class="select select-bordered h-12 min-h-[48px] w-full rounded-xl bg-base-100 text-[16px]">
+            <option value="balanced">Balanced</option>
+            <option value="high">High</option>
+            <option value="small">Small</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="text-muted">Audio bitrate</span>
+          <select name="audio_bitrate" data-opt-name="audio_bitrate" {% if is_locked %}disabled{% endif %} class="select select-bordered h-12 min-h-[48px] w-full rounded-xl bg-base-100 text-[16px]">
+            <option value="192">192 kbps</option>
+            <option value="320">320 kbps</option>
+            <option value="128">128 kbps</option>
+          </select>
+        </label>
+        {% elif job.category == 'audio' %}
+        <label class="flex flex-col gap-1.5">
+          <span class="text-muted">Bitrate</span>
+          <select name="audio_bitrate" data-opt-name="audio_bitrate" {% if is_locked %}disabled{% endif %} class="select select-bordered h-12 min-h-[48px] w-full rounded-xl bg-base-100 text-[16px]">
+            <option value="192">192 kbps</option>
+            <option value="320">320 kbps</option>
+            <option value="128">128 kbps</option>
+          </select>
+        </label>
+        {% elif job.category == 'image' %}
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label for="q-{{ job.id }}" class="text-muted">Quality</label>
+            <span id="q-val-{{ job.id }}" class="font-mono text-[14px] tabular-nums">85</span>
+          </div>
+          <input id="q-{{ job.id }}"
+                 type="range"
+                 name="image_quality"
+                 data-opt-name="image_quality"
+                 data-range-output="q-val-{{ job.id }}"
+                 min="60"
+                 max="100"
+                 value="85"
+                 {% if is_locked %}disabled{% endif %}
+                 class="range range-primary range-sm">
+        </div>
+        <label class="flex flex-col gap-1.5">
+          <span class="text-muted">Width</span>
+          <select name="image_width" data-opt-name="image_width" {% if is_locked %}disabled{% endif %} class="select select-bordered h-12 min-h-[48px] w-full rounded-xl bg-base-100 text-[16px]">
+            <option value="">Original</option>
+            <option value="1920">1920px</option>
+            <option value="1280">1280px</option>
+            <option value="800">800px</option>
+          </select>
+        </label>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+
+    <!-- Card Bottom Action Area (State Machine) -->
+    <div aria-live="polite" class="space-y-2.5 pt-1">
+      {% if job.status == 'uploaded' %}
+        <button type="submit" class="btn btn-primary h-12 min-h-[48px] w-full rounded-xl text-[16px] font-medium">
+          Convert
+        </button>
+
+      {% elif job.status == 'queued' %}
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 text-[14px] text-muted">
+            {{ icon('loader', 18, 'motion-safe:animate-spin text-primary') }}
+            <span>Waiting in queue</span>
+          </div>
+          <button type="button"
+                  hx-post="/jobs/{{ job.id }}/cancel"
+                  hx-target="#job-{{ job.id }}"
+                  hx-swap="outerHTML"
+                  class="btn btn-ghost btn-sm min-h-[40px] rounded-xl text-[14px] font-medium">
+            Cancel
+          </button>
+        </div>
+
+      {% elif job.status == 'running' %}
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-2 text-[14px]">
+            <span class="font-medium">Converting...</span>
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-muted tabular-nums">{{ job.elapsed_str }}</span>
+              <button type="button"
+                      hx-post="/jobs/{{ job.id }}/cancel"
+                      hx-target="#job-{{ job.id }}"
+                      hx-swap="outerHTML"
+                      class="btn btn-ghost btn-xs min-h-[32px] text-[12px]">
+                Cancel
+              </button>
+            </div>
+          </div>
+          <progress class="progress progress-primary h-2 w-full" aria-label="Converting {{ job.name }}"></progress>
+        </div>
+
+      {% elif job.status == 'done' %}
+        <div class="flex items-center justify-between gap-2 text-[14px]">
+          <div class="flex items-center gap-2 font-medium text-success">
+            {{ icon('check-circle', 20) }}
+            <span>Done</span>
+          </div>
+          <span class="text-muted tabular-nums">{{ (job.output_size or job.size) | format_size }}</span>
+        </div>
+
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <a href="/download/{{ job.id }}"
+             download
+             class="btn btn-primary h-12 min-h-[48px] flex-1 gap-2 rounded-xl text-[16px] font-medium">
+            {{ icon('download', 20) }}
+            <span>{% if job.preview_kind == 'pages' %}Download ZIP{% else %}Download{% endif %}</span>
+          </a>
+          <button type="button"
+                  hx-post="/jobs/{{ job.id }}/reset"
+                  hx-target="#job-{{ job.id }}"
+                  hx-swap="outerHTML"
+                  class="btn btn-outline h-12 min-h-[48px] rounded-xl border-base-300 text-[16px] font-medium sm:w-auto">
+            Convert again
+          </button>
+        </div>
+
+        {% if job.preview_kind == 'pages' %}
+        <button type="button"
+                hx-get="/jobs/{{ job.id }}/preview"
+                hx-target="#preview-{{ job.id }}"
+                hx-swap="innerHTML"
+                class="btn btn-ghost h-11 min-h-[44px] w-full rounded-xl border border-base-300 text-[14px] font-medium">
+          Pages ({{ job.page_count }}) — Download or enlarge single pages
+        </button>
+        {% elif job.preview_kind == 'text' %}
+        <button type="button"
+                hx-get="/jobs/{{ job.id }}/text"
+                hx-target="#preview-{{ job.id }}"
+                hx-swap="innerHTML"
+                class="btn btn-ghost h-11 min-h-[44px] w-full rounded-xl border border-base-300 text-[14px] font-medium">
+          Preview &amp; copy text
+        </button>
+        {% elif job.preview_kind in ('image', 'audio', 'video', 'html') %}
+        <button type="button"
+                hx-get="/jobs/{{ job.id }}/preview"
+                hx-target="#preview-{{ job.id }}"
+                hx-swap="innerHTML"
+                class="btn btn-ghost h-11 min-h-[44px] w-full rounded-xl border border-base-300 text-[14px] font-medium">
+          {% if job.preview_kind == 'audio' %}Listen{% elif job.preview_kind == 'video' %}Play{% else %}Preview &amp; enlarge{% endif %}
+        </button>
+        {% endif %}
+
+      {% elif job.status == 'error' %}
+        <div class="space-y-1 text-[14px]">
+          <div class="flex items-center gap-2 font-medium text-error">
+            {{ icon('alert-circle', 20) }}
+            <span>Conversion failed</span>
+          </div>
+          <p class="line-clamp-2 text-muted">{{ job.error }}</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary h-12 min-h-[48px] w-full rounded-xl text-[16px] font-medium">
+          Retry
+        </button>
+
+        <details class="rounded-xl border border-base-300 px-3 py-2 text-[14px]">
+          <summary class="cursor-pointer font-medium text-muted">Show details</summary>
+          <pre class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] text-muted">{{ job.error }}</pre>
+        </details>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if job.status == 'done' and job.preview_kind %}
+  <div id="preview-{{ job.id }}"></div>
+  {% endif %}
+</article>

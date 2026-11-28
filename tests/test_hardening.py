@@ -95,8 +95,9 @@ class HardeningTests(unittest.TestCase):
             html = res.get_data(as_text=True)
             ids = re.findall(r'data-job-id="([0-9a-f]+)"', html)
             self.assertEqual(len(ids), 1)
-            self.assertIn('evil.pdf', html)
+            self.assertIn('evil', html)
             self.assertIn('.pdf', html)
+            self.assertIn('skipped', html)
             self.assertTrue((config.UPLOAD_DIR / ids[0] / 'in.pdf').is_file())
 
     def test_invalid_job_id_traversal_rejected(self):
